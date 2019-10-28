@@ -1,0 +1,4 @@
+/home/nitish/LLVM_Workspace/IntraProceduralSlicing/build/CMakeFiles/rebuild_cache.dir
+/home/nitish/LLVM_Workspace/IntraProceduralSlicing/build/CMakeFiles/edit_cache.dir
+/home/nitish/LLVM_Workspace/IntraProceduralSlicing/build/CMakeFiles/intrinsics_gen.dir
+/home/nitish/LLVM_Workspace/IntraProceduralSlicing/build/CMakeFiles/InPSPass.dir
