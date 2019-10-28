@@ -34,6 +34,7 @@ struct CFGPass : public FunctionPass
 	std::map<Instruction *, std::vector<Instruction *>> map_Infl;
 	std::map<Instruction *, std::vector<Instruction *>> map_RC0;
 	std::vector<Instruction *> varList;
+	std::map<Instruction *, bool> map_SC0;
 
 	struct Criteria
 	{
@@ -56,7 +57,7 @@ struct CFGPass : public FunctionPass
 		while (itr != map_Def.end())
 		{
 #ifdef __LLVM_DEBUG__
-			std::cout << " Instruction in Listing of variable :: "<<std::endl;
+			std::cout << " Instruction in Listing of variable :: " << std::endl;
 			errs() << *itr->first << "\n";
 #endif
 			std::vector<Instruction *>::iterator itrVec = varList.begin();
@@ -295,17 +296,18 @@ struct CFGPass : public FunctionPass
 							vecSucc = getSuccessorList(F, &I);
 
 							std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
-							if(vecSucc.size() > 1) std::cout<<" ##########################################################\n\n\n\n\n";
+							if (vecSucc.size() > 1)
+								std::cout << " ##########################################################\n\n\n\n\n";
 							for (int j = 0; j < vecSucc.size(); ++j)
 							{
-								errs()<< "Successor of current Instruction picked  " << *(vecSucc[j]) <<"\n";
+								errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
 								std::vector<Instruction *> Def_I = getDef(&I);
 								std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
 
 								std::cout << " Def_I size " << Def_I.size() << std::endl;
 								std::cout << " RC0_j size " << RC0_j.size() << std::endl;
-								errs()<<" REF checking "<<isVarExistInRef(varList[i], &I)<<"\n";
+								errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
 
 								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RC0_j))
 								{
@@ -333,6 +335,85 @@ struct CFGPass : public FunctionPass
 		DisplayRC0();
 	}
 
+	void ComputeSC0(Function &F)
+	{
+
+		std::cout << "computeRC0 started " << std::endl;
+
+		int TC = 20; //getCountTotalIns(F);
+		for (int k = 0; k < TC; k++)
+			for (BasicBlock &B : F)
+			{
+				for (Instruction &I : B)
+				{
+					errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
+
+					bool flag = false;
+					std::vector<Instruction *> vecSucc;
+					vecSucc = getSuccessorList(F, &I);
+
+					for (int j = 0; j < vecSucc.size(); ++j)
+					{
+						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+
+						std::vector<Instruction *> Def_I = getDef(&I);
+						std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
+
+						std::cout << " Def_I size " << Def_I.size() << std::endl;
+						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+
+						// if (isCommonExist(Def_I, RC0_j))
+						// {
+						// 	insertSC0(&I, true);
+						// }
+						// else
+						// {
+						// 	insertSC0(&I, false);
+						// }
+
+						insertSC0(&I, isCommonExist(Def_I, RC0_j));
+					}
+				}
+			}
+
+		DisplaySC0();
+	}
+
+	void insertSC0(Instruction *ins, bool flag)
+	{
+
+		std::map<Instruction *, bool>::iterator itr = map_SC0.begin();
+		itr = map_SC0.find(ins);
+
+		if (itr != map_SC0.end())
+		{
+			itr->second = flag;
+		}
+		else
+		{
+
+			map_SC0.insert(std::pair<Instruction *, bool>(ins, flag));
+		}
+	}
+	void DisplaySC0()
+	{
+
+		std::cout << " Display SC0 started---------------------------->\n\n"
+				  << std::endl;
+		std::map<Instruction *, bool>::iterator itr = map_SC0.begin();
+
+		while (itr != map_SC0.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
+
+			errs() << "\t\t\t " << (itr->second) << "\n";
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay SC0 end---------------------------->\n\n"
+				  << std::endl;
+	}
 	void DisplayRC0()
 	{
 		std::cout << " Display RC0 started---------------------------->\n\n"
@@ -373,6 +454,7 @@ struct CFGPass : public FunctionPass
 			map_RC0.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
 		}
 	}
+
 	void insertDef(Instruction *ins, Instruction *def)
 	{
 		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
@@ -565,22 +647,21 @@ struct CFGPass : public FunctionPass
 
 			for (BasicBlock::iterator I_iter = curBB->begin(); I_iter != curBB->end(); ++I_iter)
 			{
-				 
+
 				curIns = &*I_iter;
 
-				if (curIns == I && (I->getOpcode() == Instruction::Br) )
+				if (curIns == I && (I->getOpcode() == Instruction::Br))
 				{
 					for (BasicBlock *SuccBB : successors(curBB))
 					{
 						SuccList.push_back(&SuccBB->front());
 					}
 				}
-				else if( (I == &*(itrNext) ) )
+				else if ((I == &*(itrNext)))
 				{
 					SuccList.push_back(&*I_iter);
-					
 				}
-				
+
 				itrNext = I_iter;
 			}
 
@@ -896,6 +977,8 @@ struct CFGPass : public FunctionPass
 
 		computeRC0(F);
 		displaySuccList(F);
+		ComputeSC0(F);
+
 		//displayPredList(F);
 		return false;
 	}
