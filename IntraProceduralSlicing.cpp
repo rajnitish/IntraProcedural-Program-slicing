@@ -67,7 +67,7 @@ struct CFGPass : public FunctionPass
 				if (itrVec == varList.end())
 				{
 					Instruction *I = *itr->second.begin();
-					if (I->getOpcode() == Instruction::Alloca)
+					//if (I->getOpcode() == Instruction::Alloca)
 						varList.push_back(I);
 				}
 				else
@@ -79,7 +79,7 @@ struct CFGPass : public FunctionPass
 						{
 
 							Instruction *I = *itrSec;
-							if (I->getOpcode() == Instruction::Alloca)
+						//	if (I->getOpcode() == Instruction::Alloca)
 								varList.push_back(*itrSec);
 						}
 
@@ -262,9 +262,9 @@ struct CFGPass : public FunctionPass
 	}
 	void computeRC0(Function &F)
 	{
-		std::cout << "computeRC0 started " << std::endl;
+		//std::cout << "computeRC0 started " << std::endl;
 
-		int TC = 2; //getCountTotalIns(F);
+		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 			for (BasicBlock &B : F)
 			{
@@ -273,19 +273,19 @@ struct CFGPass : public FunctionPass
 					//errs() << " Criteria Point = " << *C.p << " Instruction = " << I << "\n";
 					//errs()<<" INS---> "<<I<<" : ::  ";
 
-					errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
-					std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
+		//			errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
+		//			std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
 
 					for (int i = 0; i < varList.size(); i++)
 					{
-						errs() << " Variable picked is " << *varList[i] << "\n";
+		//				errs() << " Variable picked is " << *varList[i] << "\n";
 						bool flag1 = false, flag2 = false, flag3 = false;
 
 						if (&I == C.p)
 						{
 							if (isVarExistInCriteria(varList[i]))
 							{
-								std::cout << "\n Condition 1) met ---------->\n";
+		//						std::cout << "\n Condition 1) met ---------->\n";
 
 								flag1 = true;
 							}
@@ -295,29 +295,27 @@ struct CFGPass : public FunctionPass
 							std::vector<Instruction *> vecSucc;
 							vecSucc = getSuccessorList(F, &I);
 
-							std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
-							if (vecSucc.size() > 1)
-								std::cout << " ##########################################################\n\n\n\n\n";
+		//					std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
 							for (int j = 0; j < vecSucc.size(); ++j)
 							{
-								errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+		//						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
 								std::vector<Instruction *> Def_I = getDef(&I);
 								std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
 
-								std::cout << " Def_I size " << Def_I.size() << std::endl;
-								std::cout << " RC0_j size " << RC0_j.size() << std::endl;
-								errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
+		//						std::cout << " Def_I size " << Def_I.size() << std::endl;
+		//						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+		//						errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
 
 								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RC0_j))
 								{
-									std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+		//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
 									flag2 = true;
 								}
 
 								else if (!isVarExistInDef(varList[i], &I) && isVarExistInRC0(varList[i], vecSucc[j]))
 								{
-									std::cout << "\n Condition 2.b) met ---------->\n";
+		//							std::cout << "\n Condition 2.b) met ---------->\n";
 									flag3 = true;
 								}
 							}
@@ -338,15 +336,15 @@ struct CFGPass : public FunctionPass
 	void ComputeSC0(Function &F)
 	{
 
-		std::cout << "computeRC0 started " << std::endl;
+	//	std::cout << "computeRC0 started " << std::endl;
 
-		int TC = 2; //getCountTotalIns(F);
+		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
 				{
-					errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
+	//				errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
 
 					bool flag = false;
 					std::vector<Instruction *> vecSucc;
@@ -354,22 +352,14 @@ struct CFGPass : public FunctionPass
 
 					for (int j = 0; j < vecSucc.size(); ++j)
 					{
-						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+	//					errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
 						std::vector<Instruction *> Def_I = getDef(&I);
 						std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
 
-						std::cout << " Def_I size " << Def_I.size() << std::endl;
-						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+	//					std::cout << " Def_I size " << Def_I.size() << std::endl;
+	//					std::cout << " RC0_j size " << RC0_j.size() << std::endl;
 
-						// if (isCommonExist(Def_I, RC0_j))
-						// {
-						// 	insertSC0(&I, true);
-						// }
-						// else
-						// {
-						// 	insertSC0(&I, false);
-						// }
 
 						insertSC0(&I, isCommonExist(Def_I, RC0_j));
 					}
@@ -929,27 +919,17 @@ struct CFGPass : public FunctionPass
 		for (std::vector<Instruction *>::iterator iter1 = Inslist.begin(); iter1 != Inslist.end(); ++iter1)
 		{
 			Instruction *instr = *iter1;
+			insertRef(instr, NULL);
 
-
-
-			if (instr->op_begin() == instr->op_end())
+			for (User::op_iterator i = instr->op_begin(), e = instr->op_end(); i != e; ++i)
 			{
-				std::cout<<" NUM of OPerands is zero "<<std::endl;
-
-				insertRef(instr, NULL);
-			}
-			else
-			{
-
-				for (User::op_iterator i = instr->op_begin(), e = instr->op_end(); i != e; ++i)
+				Value *v = *i;
+				Instruction *vi = dyn_cast<Instruction>(*i);
+				if (vi)
 				{
-					Value *v = *i;
-					Instruction *vi = dyn_cast<Instruction>(*i);
-					if (vi)
-					{
-						insertRef(instr, vi);
-						//			errs() << "\t\t" << *vi << "\n";
-					}
+
+					//errs() << "iter num operands = " << instr->getNumOperands() << "\n";
+					insertRef(instr, vi);
 				}
 			}
 		}
@@ -982,7 +962,6 @@ struct CFGPass : public FunctionPass
 			}
 			else
 			{
-				std::cout<<" I am here------------------> "<<std::endl;
 				std::vector<Instruction *> tmp_vec;
 				tmp_vec.clear();
 
@@ -1079,7 +1058,7 @@ struct CFGPass : public FunctionPass
 		std::cout << " \n\nDisplay REF end---------------------------->\n\n"
 				  << std::endl;
 	}
-
+	
 	void recSlice(Instruction *I)
 	{
 		for (Use &U : I->operands())
@@ -1105,22 +1084,23 @@ struct CFGPass : public FunctionPass
 		setRef(F);
 		displayREF();
 		Influenced(F);
+		displayInfl();
 
 		int count = 0;
 		for (BasicBlock &BB : F)
 			for (Instruction &I : BB)
 			{
 				count++;
-				if (17 == count)
+				if (16	 == count)
 				{
 					errs() << " Criteria is set for program IR point = " << I << "\n";
 					setCriteria(&I);
 				}
 			}
 
-		////computeRC0(F);
-		////displaySuccList(F);
-		////ComputeSC0(F);
+		computeRC0(F);
+		displaySuccList(F);
+		ComputeSC0(F);
 
 		//displayPredList(F);
 		return false;
