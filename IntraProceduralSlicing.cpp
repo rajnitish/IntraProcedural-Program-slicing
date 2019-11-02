@@ -264,7 +264,7 @@ struct CFGPass : public FunctionPass
 	{
 		std::cout << "computeRC0 started " << std::endl;
 
-		int TC = 20; //getCountTotalIns(F);
+		int TC = 2; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 			for (BasicBlock &B : F)
 			{
@@ -340,7 +340,7 @@ struct CFGPass : public FunctionPass
 
 		std::cout << "computeRC0 started " << std::endl;
 
-		int TC = 20; //getCountTotalIns(F);
+		int TC = 2; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 			for (BasicBlock &B : F)
 			{
@@ -520,71 +520,7 @@ struct CFGPass : public FunctionPass
 
 		return tmp_vec;
 	}
-	void insertRef(Instruction *ins, Instruction *ref)
-	{
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.find(ins);
-
-		if (itr != map_Ref.end())
-		{
-
-			if (std::find(itr->second.begin(), itr->second.end(), ref) == itr->second.end())
-			{
-				if (ref)
-				{
-					if (isPresentinVarList(ref))
-						itr->second.push_back(ref);
-
-					for (unsigned i = 0, ei = ref->getNumOperands(); i != ei; i++)
-					{
-						Value *operand1 = ref->getOperand(i);
-
-						if (operand1)
-						{
-							Instruction *vi = dyn_cast<Instruction>(operand1);
-							if (vi)
-								if (vi->getOpcode() == Instruction::Load || vi->getOpcode() == Instruction::Alloca)
-
-									if (isPresentinVarList(vi))
-										itr->second.push_back(vi);
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			if (ref)
-			{
-
-				std::vector<Instruction *> tmp_vec;
-
-				if (isPresentinVarList(ref))
-					tmp_vec.push_back(ref);
-
-				for (unsigned i = 0, ei = ref->getNumOperands(); i != ei; i++)
-				{
-
-					Value *operand1 = ref->getOperand(i);
-					if (operand1)
-					{
-
-						Instruction *vi = dyn_cast<Instruction>(operand1);
-
-						if (vi)
-							if (vi->getOpcode() == Instruction::Load || vi->getOpcode() == Instruction::Alloca)
-							{
-								std::cout << isPresentinVarList(vi) << std::endl;
-								errs() << *vi << " \n";
-								//if (isPresentinVarList(vi))
-								tmp_vec.push_back(vi);
-							}
-					}
-				}
-				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
-			}
-		}
-	}
 	void insertInfl(Instruction *ins, Instruction *Infl)
 	{
 		//std::cout << "Instruction insert took place " << std::endl;
@@ -871,6 +807,31 @@ struct CFGPass : public FunctionPass
 			}
 	}
 
+	void displayInfl()
+	{
+
+		std::cout << " Display Infl started---------------------------->\n\n"
+				  << std::endl;
+		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Infl.begin();
+
+		while (itr != map_Infl.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n";
+
+			if (itr->second.size() == 0)
+				std::cout << "\t\t\t No Infl for this Instruction" << std::endl;
+			for (int i = 0; i < itr->second.size(); i++)
+			{
+				errs() << "\t\t\t " << *(itr->second[i]) << "\n";
+			}
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay Infl end---------------------------->\n\n"
+				  << std::endl;
+	}
+
 	void setDef(Function &F)
 	{
 #ifdef __LLVM_DEBUG__
@@ -896,25 +857,68 @@ struct CFGPass : public FunctionPass
 			//	{
 			//				errs() << "\t\t Predecessor Instruction :: " << *PredList[i] << "\n";
 			//	}
-			for (Value::use_iterator i = instr->use_begin(), ie = instr->use_end(); i != ie; ++i)
-			{
-				Value *v = *i;
-				Instruction *vi = dyn_cast<Instruction>(&*i);
-				if (vi)
-				{
-					insertDef(instr, vi);
 
-					//	errs() << "\t\t" << *vi << "\n";
+			Instruction *vi = dyn_cast<Instruction>(instr);
+			if (vi->getOpcode() == Instruction::Store)
+			{
+
+				//	errs() << "Ref: " << *instr << "\n";
+				for (User::op_iterator i = vi->op_begin(), e = vi->op_end(); i != e; ++i)
+				{
+					Value *v = *i;
+					Instruction *opIns = dyn_cast<Instruction>(*i);
+					if (opIns)
+					{
+						insertDef(instr, opIns);
+					}
+				}
+			}
+
+			else
+			{
+
+				for (Value::use_iterator i = instr->use_begin(), ie = instr->use_end(); i != ie; ++i)
+				{
+					Value *v = *i;
+
+					Instruction *useIns = dyn_cast<Instruction>(*i);
+					if (useIns)
+					{
+						insertDef(instr, useIns);
+
+						//	errs() << "\t\t" << *vi << "\n";
+					}
 				}
 			}
 			iter++;
 		} // use-def chain for Instruction
 	}
+	void displayDEF()
+	{
+
+		std::cout << " Display DEF started---------------------------->\n\n"
+				  << std::endl;
+		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+
+		while (itr != map_Def.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n";
+
+			if (itr->second.size() == 0)
+				std::cout << "\t\t\t No Def for this Instruction" << std::endl;
+			for (int i = 0; i < itr->second.size(); i++)
+			{
+				errs() << "\t\t\t " << *(itr->second[i]) << "\n";
+			}
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay DEF end---------------------------->\n\n"
+				  << std::endl;
+	}
 	void setRef(Function &F)
 	{
-		//errs() << " Printing Def Use"
-		//	   << "\n";
-		//<< *F;
 
 		std::vector<Instruction *> Inslist;
 		for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
@@ -925,18 +929,155 @@ struct CFGPass : public FunctionPass
 		for (std::vector<Instruction *>::iterator iter1 = Inslist.begin(); iter1 != Inslist.end(); ++iter1)
 		{
 			Instruction *instr = *iter1;
-			//	errs() << "Ref: " << *instr << "\n";
-			for (User::op_iterator i = instr->op_begin(), e = instr->op_end(); i != e; ++i)
+
+
+
+			if (instr->op_begin() == instr->op_end())
 			{
-				Value *v = *i;
-				Instruction *vi = dyn_cast<Instruction>(*i);
-				if (vi)
+				std::cout<<" NUM of OPerands is zero "<<std::endl;
+
+				insertRef(instr, NULL);
+			}
+			else
+			{
+
+				for (User::op_iterator i = instr->op_begin(), e = instr->op_end(); i != e; ++i)
 				{
-					insertRef(instr, vi);
-					//			errs() << "\t\t" << *vi << "\n";
+					Value *v = *i;
+					Instruction *vi = dyn_cast<Instruction>(*i);
+					if (vi)
+					{
+						insertRef(instr, vi);
+						//			errs() << "\t\t" << *vi << "\n";
+					}
 				}
 			}
 		}
+	}
+	void insertRef(Instruction *ins, Instruction *ref)
+	{
+
+		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.find(ins);
+
+		if (itr != map_Ref.end())
+		{
+
+			if (std::find(itr->second.begin(), itr->second.end(), ref) == itr->second.end())
+			{
+				if (ref && ref->getOpcode() != Instruction::Store)
+				{
+					itr->second.push_back(ref);
+				}
+			}
+		}
+		else
+		{
+			if (ref)
+			{
+
+				std::vector<Instruction *> tmp_vec;
+				tmp_vec.push_back(ref);
+
+				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			}
+			else
+			{
+				std::cout<<" I am here------------------> "<<std::endl;
+				std::vector<Instruction *> tmp_vec;
+				tmp_vec.clear();
+
+				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			}
+		}
+	}
+	/*	void insertRef(Instruction *ins, Instruction *ref)
+	{
+
+		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.find(ins);
+
+		if (itr != map_Ref.end())
+		{
+
+			if (std::find(itr->second.begin(), itr->second.end(), ref) == itr->second.end())
+			{
+				if (ref)
+				{
+					if (isPresentinVarList(ref))
+						itr->second.push_back(ref);
+
+					for (unsigned i = 0, ei = ref->getNumOperands(); i != ei; i++)
+					{
+						Value *operand1 = ref->getOperand(i);
+
+						if (operand1)
+						{
+							Instruction *vi = dyn_cast<Instruction>(operand1);
+							if (vi)
+								if (vi->getOpcode() == Instruction::Load || vi->getOpcode() == Instruction::Alloca)
+
+									if (isPresentinVarList(vi))
+										itr->second.push_back(vi);
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			if (ref)
+			{
+
+				std::vector<Instruction *> tmp_vec;
+
+				if (isPresentinVarList(ref))
+					tmp_vec.push_back(ref);
+
+				for (unsigned i = 0, ei = ref->getNumOperands(); i != ei; i++)
+				{
+
+					Value *operand1 = ref->getOperand(i);
+					if (operand1)
+					{
+
+						Instruction *vi = dyn_cast<Instruction>(operand1);
+
+						if (vi)
+							if (vi->getOpcode() == Instruction::Load || vi->getOpcode() == Instruction::Alloca)
+							{
+								std::cout << isPresentinVarList(vi) << std::endl;
+								errs() << *vi << " \n";
+								//if (isPresentinVarList(vi))
+								tmp_vec.push_back(vi);
+							}
+					}
+				}
+				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			}
+		}
+	}*/
+	void displayREF()
+	{
+
+		std::cout << " Display REF started---------------------------->\n\n"
+				  << std::endl;
+		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.begin();
+
+		while (itr != map_Ref.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n";
+
+			if (itr->second.size() == 0)
+				std::cout << "\t\t\t No Ref for this Instruction" << std::endl;
+			for (int i = 0; i < itr->second.size(); i++)
+			{
+				errs() << "\t\t\t " << *(itr->second[i]) << "\n";
+			}
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay REF end---------------------------->\n\n"
+				  << std::endl;
 	}
 
 	void recSlice(Instruction *I)
@@ -959,8 +1100,10 @@ struct CFGPass : public FunctionPass
 		//findVariables(F);
 		//createCFG(F);
 		setDef(F);
+		displayDEF();
 		setListOfVariables();
 		setRef(F);
+		displayREF();
 		Influenced(F);
 
 		int count = 0;
@@ -975,9 +1118,9 @@ struct CFGPass : public FunctionPass
 				}
 			}
 
-		computeRC0(F);
-		displaySuccList(F);
-		ComputeSC0(F);
+		////computeRC0(F);
+		////displaySuccList(F);
+		////ComputeSC0(F);
 
 		//displayPredList(F);
 		return false;
