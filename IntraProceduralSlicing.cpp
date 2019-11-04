@@ -29,17 +29,34 @@ struct CFGPass : public FunctionPass
 		int ins_id;
 	};
 
-	std::map<Instruction *, std::vector<Instruction *>> map_Def;
-	std::map<Instruction *, std::vector<Instruction *>> map_Ref;
-	std::map<Instruction *, std::vector<Instruction *>> map_Infl;
-	std::map<Instruction *, std::vector<Instruction *>> map_RC0;
-	std::vector<Instruction *> varList;
-	std::map<Instruction *, bool> map_SC0;
+	typedef std::vector<Instruction *> __vecIns_type__;
+	typedef std::pair<Instruction *, __vecIns_type__> __pair_map_Ins__;
+	typedef std::map<Instruction *, __vecIns_type__> __mapIns_type__;
+	typedef __mapIns_type__::iterator __itr_mapIns_type__;
+	typedef std::map<Instruction *, bool> __mapIns_Inc_type__;
+	typedef std::map<Instruction *, bool>::iterator __itr_mapIns_Inc_type__;
+	typedef std::vector<Instruction *>::iterator __itr_vecIns_type__;
+
+	__vecIns_type__ varList;
+	__mapIns_type__ map_Def;
+	__mapIns_type__ map_Ref;
+	__mapIns_type__ map_Infl;
+
+	__mapIns_type__ map_RC0;
+	__mapIns_type__ map_RCk;
+	__mapIns_type__ map_RCkPlus1;
+
+	__mapIns_Inc_type__ map_SC0;
+	__mapIns_Inc_type__ map_SCkPlus1;
+
+	__mapIns_Inc_type__ map_BC0;
+	__mapIns_Inc_type__ map_BCk;
+	__mapIns_Inc_type__ map_BCkPlus1;
 
 	struct Criteria
 	{
 		Instruction *p;
-		std::vector<Instruction *> V;
+		__vecIns_type__ V;
 	};
 
 	Criteria C;
@@ -51,16 +68,400 @@ struct CFGPass : public FunctionPass
 	int bbCount; //Block
 	CFGPass() : FunctionPass(ID) { bbCount = 0; }
 
-	void setListOfVariables() // currently stored all , we can filter it for alloc only
+	void computeBCkPlus1(Function &F)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+		bool breakFlag = false;
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+
+				bool flag = true;
+
+				__vecIns_type__ vec_Infl = getInfl(&I);
+
+				if (vec_Infl.size() > 0)
+				{
+					for (int j = 0; j < vec_Infl.size(); ++j)
+					{
+						if (getSCkPlus1(vec_Infl[j]))
+							insertBCkPlus1(&I, true);
+					}
+				}
+				else
+				{
+					insertBCkPlus1(&I, false);
+				}
+
+				if (&I == C.p)
+				{
+					breakFlag = true;
+				}
+			}
+			if (breakFlag)
+				break;
+		}
+
+		map_BCk = map_BCkPlus1;
+	}
+
+	bool getSCkPlus1(Instruction *ins)
+	{
+		__mapIns_Inc_type__::iterator itr = map_SCkPlus1.begin();
+		itr = map_SCkPlus1.find(ins);
+
+		if (itr != map_SCkPlus1.end())
+		{
+			return itr->second;
+		}
+		else
+		{
+			std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+			return false;
+		}
+	}
+	void insertBCkPlus1(Instruction *ins, bool flag)
+	{
+		__mapIns_Inc_type__::iterator itr = map_BCkPlus1.begin();
+		itr = map_BCkPlus1.find(ins);
+
+		if (itr != map_BCkPlus1.end())
+		{
+			itr->second = flag;
+		}
+		else
+		{
+
+			map_BCkPlus1.insert(std::pair<Instruction *, bool>(ins, flag));
+		}
+	}
+
+	void computeSCkPlus1(Function &F)
+	{
+
+		int TC = 20; //getCountTotalIns(F);
+		for (int k = 0; k < TC; k++)
+		{
+			bool breakFlag = false;
+			for (BasicBlock &B : F)
+			{
+				for (Instruction &I : B)
+				{
+
+					bool flag = false;
+					__vecIns_type__ vecSucc;
+					vecSucc = getSuccessorList(F, &I);
+
+					for (int j = 0; j < vecSucc.size(); ++j)
+					{
+
+						__vecIns_type__ Def_I = getDef(&I);
+						__vecIns_type__ RCkPlus1_j = getRCkPlus1(vecSucc[j]);
+
+						insertSCkPlus1(&I, isCommonExist(Def_I, RCkPlus1_j));
+					}
+
+					if (&I == C.p)
+					{
+						breakFlag = true;
+						break;
+					}
+				}
+				if (breakFlag)
+					break;
+			}
+		}
+
+		__itr_mapIns_Inc_type__ itr = map_BCk.begin();
+
+		while (itr != map_BCk.end())
+		{
+			if (itr->second == true)
+			{
+				insertSCkPlus1(itr->first, true);
+			}
+			itr++;
+		}
+	}
+
+	void insertSCkPlus1(Instruction *ins, bool flag)
+	{
+
+		__mapIns_Inc_type__::iterator itr = map_SCkPlus1.begin();
+		itr = map_SCkPlus1.find(ins);
+
+		if (itr != map_SCkPlus1.end())
+		{
+			itr->second = flag;
+		}
+		else
+		{
+
+			map_SCkPlus1.insert(std::pair<Instruction *, bool>(ins, flag));
+		}
+	}
+
+	void computeRCkPlus1(Function &F) //Note RCk is intially assined from RC0; base value of RCk
+	{
+		__mapIns_type__ UnionRBck0 = computeUnionRCb0(F, map_BCk);
+
+		__itr_mapIns_type__ itr = UnionRBck0.begin();
+
+		int TC = 20; //getCountTotalIns(F);
+		for (int k = 0; k < TC; k++)
+		{
+			bool breakFlag = false;
+			for (BasicBlock &B : F)
+			{
+				for (Instruction &I : B)
+				{
+					__vecIns_type__ rck = getRCk(&I);
+
+					if (rck.size() > 0)
+					{
+						__itr_vecIns_type__ itrRck = rck.begin();
+
+						while (itrRck != rck.end())
+						{
+							insertRCkPlus1(&I, *itrRck);
+
+							itrRck++;
+						}
+					}
+
+					itr = UnionRBck0.find(&I);
+
+					if (itr != UnionRBck0.end())
+					{
+						__itr_vecIns_type__ itrSec = itr->second.begin();
+
+						while (itrSec != itr->second.end())
+						{
+							insertRCkPlus1(&I, *itrSec);
+
+							itrSec++;
+						}
+					}
+
+					if (&I == C.p)
+					{
+						breakFlag = true;
+						break;
+					}
+				}
+				if (breakFlag)
+					break;
+			}
+		}
+
+		map_RCk.clear();
+		map_RCk = map_RCkPlus1;
+	}
+
+	void insertRCkPlus1(Instruction *ins, Instruction *rck)
+	{
+		__itr_mapIns_type__ itr = map_RCkPlus1.begin();
+		itr = map_RCkPlus1.find(ins);
+
+		if (itr != map_RCkPlus1.end())
+		{
+			if (std::find(itr->second.begin(), itr->second.end(), rck) == itr->second.end())
+			{
+				itr->second.push_back(rck);
+			}
+		}
+		else
+		{
+			__vecIns_type__ tmp_vec;
+			tmp_vec.push_back(rck);
+			map_RCk.insert(__pair_map_Ins__(ins, tmp_vec));
+		}
+	}
+	__vecIns_type__ getRCk(Instruction *I)
+	{
+
+		__vecIns_type__ tmp_vec;
+		tmp_vec.clear();
+
+		__itr_mapIns_type__ itr = map_RCk.begin();
+		itr = map_RCk.find(I);
+
+		if (itr != map_RCk.end())
+		{
+			tmp_vec = itr->second;
+		}
+
+		return tmp_vec;
+	}
+	__vecIns_type__ getRCkPlus1(Instruction *I)
+	{
+
+		__vecIns_type__ tmp_vec;
+		tmp_vec.clear();
+
+		__itr_mapIns_type__ itr = map_RCkPlus1.begin();
+		itr = map_RCkPlus1.find(I);
+
+		if (itr != map_RCkPlus1.end())
+		{
+			tmp_vec = itr->second;
+		}
+
+		return tmp_vec;
+	}
+
+	__mapIns_type__ computeUnionRCb0(Function &F, __mapIns_Inc_type__ BCk)
+	{
+		__mapIns_type__ map_RCb0;
+		map_RCb0.clear();
+
+		__mapIns_Inc_type__::iterator itr_BCk = BCk.begin();
+
+		while (itr_BCk != BCk.end())
+		{
+			if (itr_BCk->second)
+			{
+				Criteria Cb_k = setCriteria(itr_BCk->first);
+
+				__mapIns_type__ map_RCb0_k;
+				map_RCb0_k.clear();
+				map_RCb0_k = computeRCb0(F, Cb_k);
+
+				__itr_mapIns_type__ itr_map_RC0_k = map_RCb0_k.begin();
+
+				while (itr_map_RC0_k != map_RCb0_k.end())
+				{
+
+					__itr_mapIns_type__ itr = map_RCb0.begin();
+					itr = map_RCb0.find(itr_map_RC0_k->first);
+
+					if (itr != map_RCb0.end())
+					{
+						for (int i = 0; i < itr_map_RC0_k->second.size(); i++)
+						{
+							if (std::find(itr->second.begin(), itr->second.end(), itr_map_RC0_k->second[i]) == itr->second.end())
+							{
+								itr->second.push_back(itr_map_RC0_k->second[i]);
+							}
+						}
+					}
+					else
+					{
+						__vecIns_type__ tmp_vec;
+						tmp_vec.clear();
+						if (itr_map_RC0_k->second.size() > 0)
+						{
+							tmp_vec = itr_map_RC0_k->second;
+						}
+						map_RCb0.insert(__pair_map_Ins__(itr_map_RC0_k->first, tmp_vec));
+					}
+
+					itr_map_RC0_k++;
+				}
+			}
+			itr_BCk++;
+		}
+
+		return map_RCb0;
+	}
+
+	__mapIns_type__ computeRCb0(Function &F, Criteria Cb)
+	{
+		__mapIns_type__ map_RCb0;
+
+		int TC = 20; //getCountTotalIns(F);
+		for (int k = 0; k < TC; k++)
+		{
+			bool breakFlag = false;
+			for (BasicBlock &B : F)
+			{
+				for (Instruction &I : B)
+				{
+
+					for (int i = 0; i < varList.size(); i++)
+					{
+						//				errs() << " Variable picked is " << *varList[i] << "\n";
+						bool flag1 = false, flag2 = false, flag3 = false;
+
+						if (&I == Cb.p)
+						{
+							if (isVarExistInCriteria(varList[i], Cb))
+							{
+								std::cout << "\n Condition 1) met ---------->\n";
+
+								flag1 = true;
+							}
+						}
+						else
+						{
+							__vecIns_type__ vecSucc;
+							vecSucc = getSuccessorList(F, &I);
+							for (int j = 0; j < vecSucc.size(); ++j)
+							{
+								__vecIns_type__ Def_I = getDef(&I);
+								__vecIns_type__ RCb0_j = getRCb0(vecSucc[j], map_RCb0);
+
+								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RCb0_j))
+								{
+									//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+									flag2 = true;
+								}
+
+								else if (!isVarExistInDef(varList[i], &I) && isVarExistInRCb0(varList[i], vecSucc[j], map_RCb0))
+								{
+									//							std::cout << "\n Condition 2.b) met ---------->\n";
+									flag3 = true;
+								}
+							}
+						}
+
+						if (flag1 || flag2 || flag3)
+						{
+							__itr_mapIns_type__ itr = map_RCb0.begin();
+							itr = map_RCb0.find(&I);
+
+							if (itr != map_RCb0.end())
+							{
+								if (std::find(itr->second.begin(), itr->second.end(), varList[i]) == itr->second.end())
+								{
+									itr->second.push_back(varList[i]);
+								}
+							}
+							else
+							{
+								__vecIns_type__ tmp_vec;
+								tmp_vec.push_back(varList[i]);
+
+								map_RCb0.insert(__pair_map_Ins__(&I, tmp_vec));
+							}
+						}
+					}
+
+					if (&I == Cb.p)
+					{
+						breakFlag = true;
+						break;
+					}
+				}
+
+				if (breakFlag)
+					break;
+			}
+		}
+
+		return map_RCb0;
+	}
+
+	void setListOfVariables() // currently stored all
+	{
+		__itr_mapIns_type__ itr = map_Def.begin();
 		while (itr != map_Def.end())
 		{
 #ifdef __LLVM_DEBUG__
 			std::cout << " Instruction in Listing of variable :: " << std::endl;
 			errs() << *itr->first << "\n";
 #endif
-			std::vector<Instruction *>::iterator itrVec = varList.begin();
+			__vecIns_type__::iterator itrVec = varList.begin();
 
 			if (itr->second.size() > 0)
 			{
@@ -68,19 +469,19 @@ struct CFGPass : public FunctionPass
 				{
 					Instruction *I = *itr->second.begin();
 					//if (I->getOpcode() == Instruction::Alloca)
-						varList.push_back(I);
+					varList.push_back(I);
 				}
 				else
 				{
-					std::vector<Instruction *>::iterator itrSec = itr->second.begin();
+					__vecIns_type__::iterator itrSec = itr->second.begin();
 					while (itrSec != itr->second.end())
 					{
 						if (std::find(varList.begin(), varList.end(), *itrSec) == varList.end())
 						{
 
 							Instruction *I = *itrSec;
-						//	if (I->getOpcode() == Instruction::Alloca)
-								varList.push_back(*itrSec);
+							//	if (I->getOpcode() == Instruction::Alloca)
+							varList.push_back(*itrSec);
 						}
 
 						itrSec++;
@@ -103,10 +504,11 @@ struct CFGPass : public FunctionPass
 	{
 		return !(std::find(varList.begin(), varList.end(), I) == varList.end());
 	}
-	void setCriteria(Instruction *I)
+	Criteria setCriteria(Instruction *I)
 	{
-		C.p = I;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr;
+		Criteria Cb;
+		Cb.p = I;
+		__itr_mapIns_type__ itr;
 		itr = map_Ref.find(I);
 
 		if (itr == map_Ref.end())
@@ -118,19 +520,20 @@ struct CFGPass : public FunctionPass
 			errs() << " Criteria Variable set are as follows \n\n";
 			for (int i = 0; i < itr->second.size(); i++)
 				errs() << " \t\t " << *itr->second[i] << "\n";
-			C.V = itr->second;
+			Cb.V = itr->second;
 		}
+		return Cb;
 	}
 
-	bool isVarExistInCriteria(Instruction *i)
+	bool isVarExistInCriteria(Instruction *i, Criteria Cb)
 	{
 
-		return !(std::find(C.V.begin(), C.V.end(), i) == C.V.end());
+		return !(std::find(Cb.V.begin(), Cb.V.end(), i) == Cb.V.end());
 	}
 
 	bool isVarExistInRef(Instruction *v, Instruction *i) // is v belongs to Ref(i)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.begin();
+		__itr_mapIns_type__ itr = map_Ref.begin();
 
 		itr = map_Ref.find(i);
 		if (itr != map_Ref.end())
@@ -144,7 +547,7 @@ struct CFGPass : public FunctionPass
 	}
 	bool isVarExistInDef(Instruction *v, Instruction *i) // is v belongs to Def(i)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+		__itr_mapIns_type__ itr = map_Def.begin();
 
 		itr = map_Def.find(i);
 		if (itr != map_Def.end())
@@ -157,9 +560,24 @@ struct CFGPass : public FunctionPass
 		}
 	}
 
+	bool isVarExistInRCb0(Instruction *v, Instruction *i, __mapIns_type__ mapRC) // is v belongs to Def(i)
+	{
+		__itr_mapIns_type__ itr = mapRC.begin();
+
+		itr = mapRC.find(i);
+		if (itr != mapRC.end())
+		{
+			return !(std::find(itr->second.begin(), itr->second.end(), v) == itr->second.end());
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	bool isVarExistInRC0(Instruction *v, Instruction *i) // is v belongs to Def(i)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_RC0.begin();
+		__itr_mapIns_type__ itr = map_RC0.begin();
 
 		itr = map_RC0.find(i);
 		if (itr != map_RC0.end())
@@ -171,28 +589,30 @@ struct CFGPass : public FunctionPass
 			return false;
 		}
 	}
-	bool isCommonExist(std::vector<Instruction *> vec1, std::vector<Instruction *> vec2)
+	bool isCommonExist(__vecIns_type__ vec1, __vecIns_type__ vec2)
 	{
 		for (int i = 0; i < vec1.size(); i++)
 			for (int j = 0; j < vec2.size(); j++)
 			{
 				if (vec1[i] == vec2[j])
+				{
 					return true;
+				}
 			}
 
 		return false;
 	}
 
-	/*std::vector<Instruction *> getSuccessorList(Instruction *ins, Function &F)
+	/*__vecIns_type__ getSuccessorList(Instruction *ins, Function &F)
 	{
-		std::vector<Instruction *> SuccList;
+		__vecIns_type__ SuccList;
 		SuccList.clear();
 
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
 			{
-				std::vector<Instruction *> predList = getPredessorList(F, &I);
+				__vecIns_type__ predList = getPredessorList(F, &I);
 
 				for (int i = 0; i < predList.size(); i++)
 				{
@@ -213,14 +633,14 @@ struct CFGPass : public FunctionPass
 	void displaySuccList(Function &F)
 	{
 
-		std::vector<Instruction *> SuccList;
+		__vecIns_type__ SuccList;
 		SuccList.clear();
 
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
 			{
-				std::vector<Instruction *> SuccList = getSuccessorList(F, &I);
+				__vecIns_type__ SuccList = getSuccessorList(F, &I);
 
 				errs() << "\n\n\n Successor of  :: " << *&I << " is as follows ::\n";
 				for (int i = 0; i < SuccList.size(); i++)
@@ -237,7 +657,7 @@ struct CFGPass : public FunctionPass
 		{
 			for (Instruction &I : B)
 			{
-				std::vector<Instruction *> PredList = getPredessorList(F, &I);
+				__vecIns_type__ PredList = getPredessorList(F, &I);
 
 				errs() << "\n\n\n Predessor of  :: " << *&I << " is as follows ::\n";
 				for (int i = 0; i < PredList.size(); i++)
@@ -266,6 +686,8 @@ struct CFGPass : public FunctionPass
 
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
+		{
+			bool breakFlag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -273,49 +695,49 @@ struct CFGPass : public FunctionPass
 					//errs() << " Criteria Point = " << *C.p << " Instruction = " << I << "\n";
 					//errs()<<" INS---> "<<I<<" : ::  ";
 
-		//			errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
-		//			std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
+					//			errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
+					//			std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
 
 					for (int i = 0; i < varList.size(); i++)
 					{
-		//				errs() << " Variable picked is " << *varList[i] << "\n";
+						//				errs() << " Variable picked is " << *varList[i] << "\n";
 						bool flag1 = false, flag2 = false, flag3 = false;
 
 						if (&I == C.p)
 						{
-							if (isVarExistInCriteria(varList[i]))
+							if (isVarExistInCriteria(varList[i], C))
 							{
-		//						std::cout << "\n Condition 1) met ---------->\n";
+								//						std::cout << "\n Condition 1) met ---------->\n";
 
 								flag1 = true;
 							}
 						}
 						else
 						{
-							std::vector<Instruction *> vecSucc;
+							__vecIns_type__ vecSucc;
 							vecSucc = getSuccessorList(F, &I);
 
-		//					std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
+							//					std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
 							for (int j = 0; j < vecSucc.size(); ++j)
 							{
-		//						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+								//						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
-								std::vector<Instruction *> Def_I = getDef(&I);
-								std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
+								__vecIns_type__ Def_I = getDef(&I);
+								__vecIns_type__ RC0_j = getRC0(vecSucc[j]);
 
-		//						std::cout << " Def_I size " << Def_I.size() << std::endl;
-		//						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
-		//						errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
+								//						std::cout << " Def_I size " << Def_I.size() << std::endl;
+								//						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+								//						errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
 
 								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RC0_j))
 								{
-		//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+									//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
 									flag2 = true;
 								}
 
 								else if (!isVarExistInDef(varList[i], &I) && isVarExistInRC0(varList[i], vecSucc[j]))
 								{
-		//							std::cout << "\n Condition 2.b) met ---------->\n";
+									//							std::cout << "\n Condition 2.b) met ---------->\n";
 									flag3 = true;
 								}
 							}
@@ -326,53 +748,161 @@ struct CFGPass : public FunctionPass
 							//	errs()<< " VAR--->"<<*varList[i]<<"\n\n";
 							insertRC0(&I, varList[i]);
 						}
+
+						if (&I == C.p)
+						{
+							breakFlag = true;
+							break;
+						}
 					}
 				}
-			}
 
-		DisplayRC0();
+				if (breakFlag)
+					break;
+			}
+		}
+
+		map_RCk = map_RC0;
 	}
 
-	void ComputeSC0(Function &F)
+	void computeBC0(Function &F)
+	{
+		bool breakFlag = false;
+
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+				bool flag = true;
+
+				__vecIns_type__ vec_Infl = getInfl(&I);
+
+				if (vec_Infl.size() > 0)
+				{
+					for (int j = 0; j < vec_Infl.size(); ++j)
+					{
+						if (getSC0(vec_Infl[j]))
+							insertBC0(&I, true);
+					}
+				}
+				else
+				{
+					insertBC0(&I, false);
+				}
+
+				if (&I == C.p)
+				{
+					breakFlag = true;
+					break;
+				}
+			}
+			if (breakFlag)
+				break;
+		}
+
+		map_BCk = map_BC0;
+	}
+
+	void insertBC0(Instruction *ins, bool flag)
+	{
+		__mapIns_Inc_type__::iterator itr = map_BC0.begin();
+		itr = map_BC0.find(ins);
+
+		if (itr != map_BC0.end())
+		{
+			itr->second = flag;
+		}
+		else
+		{
+
+			map_BC0.insert(std::pair<Instruction *, bool>(ins, flag));
+		}
+	}
+	void displayBC0()
 	{
 
-	//	std::cout << "computeRC0 started " << std::endl;
+		std::cout << " Display BC0 started---------------------------->\n\n"
+				  << std::endl;
+		__mapIns_Inc_type__::iterator itr = map_BC0.begin();
+
+		while (itr != map_BC0.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
+
+			errs() << "\t\t\t " << (itr->second) << "\n";
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay BC0 end---------------------------->\n\n"
+				  << std::endl;
+	}
+	void displayBCkPlus1()
+	{
+
+		std::cout << " Display BC(k+1) started---------------------------->\n\n"
+				  << std::endl;
+		__mapIns_Inc_type__::iterator itr = map_BCkPlus1.begin();
+
+		while (itr != map_BCkPlus1.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
+
+			errs() << "\t\t\t " << (itr->second) << "\n";
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay BC(k+1) end---------------------------->\n\n"
+				  << std::endl;
+	}
+	void computeSC0(Function &F)
+	{
 
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
+		{
+			bool breakFlag = false;
+
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
 				{
-	//				errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
+					//				errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
 
 					bool flag = false;
-					std::vector<Instruction *> vecSucc;
+					__vecIns_type__ vecSucc;
 					vecSucc = getSuccessorList(F, &I);
 
 					for (int j = 0; j < vecSucc.size(); ++j)
 					{
-	//					errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+						//					errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
-						std::vector<Instruction *> Def_I = getDef(&I);
-						std::vector<Instruction *> RC0_j = getRC0(vecSucc[j]);
+						__vecIns_type__ Def_I = getDef(&I);
+						__vecIns_type__ RC0_j = getRC0(vecSucc[j]);
 
-	//					std::cout << " Def_I size " << Def_I.size() << std::endl;
-	//					std::cout << " RC0_j size " << RC0_j.size() << std::endl;
-
+						//					std::cout << " Def_I size " << Def_I.size() << std::endl;
+						//					std::cout << " RC0_j size " << RC0_j.size() << std::endl;
 
 						insertSC0(&I, isCommonExist(Def_I, RC0_j));
 					}
-				}
-			}
 
-		DisplaySC0();
+					if (&I == C.p)
+					{
+						breakFlag = true;
+						break;
+					}
+				}
+				if (breakFlag)
+					break;
+			}
+		}
 	}
 
 	void insertSC0(Instruction *ins, bool flag)
 	{
 
-		std::map<Instruction *, bool>::iterator itr = map_SC0.begin();
+		__mapIns_Inc_type__::iterator itr = map_SC0.begin();
 		itr = map_SC0.find(ins);
 
 		if (itr != map_SC0.end())
@@ -385,12 +915,12 @@ struct CFGPass : public FunctionPass
 			map_SC0.insert(std::pair<Instruction *, bool>(ins, flag));
 		}
 	}
-	void DisplaySC0()
+	void displaySC0()
 	{
 
 		std::cout << " Display SC0 started---------------------------->\n\n"
 				  << std::endl;
-		std::map<Instruction *, bool>::iterator itr = map_SC0.begin();
+		__mapIns_Inc_type__::iterator itr = map_SC0.begin();
 
 		while (itr != map_SC0.end())
 		{
@@ -404,11 +934,45 @@ struct CFGPass : public FunctionPass
 		std::cout << " \n\nDisplay SC0 end---------------------------->\n\n"
 				  << std::endl;
 	}
-	void DisplayRC0()
+	void displaySCkPlus1()
+	{
+
+		std::cout << " Display SC(k+1) started---------------------------->\n\n"
+				  << std::endl;
+		__mapIns_Inc_type__::iterator itr = map_SCkPlus1.begin();
+
+		while (itr != map_SCkPlus1.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
+
+			errs() << "\t\t\t " << (itr->second) << "\n";
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay SC(k+1) end---------------------------->\n\n"
+				  << std::endl;
+	}
+	bool getSC0(Instruction *ins)
+	{
+		__mapIns_Inc_type__::iterator itr = map_SC0.begin();
+		itr = map_SC0.find(ins);
+
+		if (itr != map_SC0.end())
+		{
+			return itr->second;
+		}
+		else
+		{
+			std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+			return false;
+		}
+	}
+	void displayRC0()
 	{
 		std::cout << " Display RC0 started---------------------------->\n\n"
 				  << std::endl;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_RC0.begin();
+		__itr_mapIns_type__ itr = map_RC0.begin();
 
 		while (itr != map_RC0.end())
 		{
@@ -425,9 +989,30 @@ struct CFGPass : public FunctionPass
 		std::cout << " \n\nDisplay RC0 end---------------------------->\n\n"
 				  << std::endl;
 	}
+	void displayRCkPlus1()
+	{
+		std::cout << " Display RC(k+1) started---------------------------->\n\n"
+				  << std::endl;
+		__itr_mapIns_type__ itr = map_RCkPlus1.begin();
+
+		while (itr != map_RCkPlus1.end())
+		{
+			errs() << "\n\n Instruction :: " << *(itr->first) << "\n";
+
+			for (int i = 0; i < itr->second.size(); i++)
+			{
+				errs() << "\t\t\t " << *(itr->second[i]) << "\n";
+			}
+
+			itr++;
+		}
+
+		std::cout << " \n\nDisplay RC(k+1) end---------------------------->\n\n"
+				  << std::endl;
+	}
 	void insertRC0(Instruction *ins, Instruction *rc0)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_RC0.begin();
+		__itr_mapIns_type__ itr = map_RC0.begin();
 		itr = map_RC0.find(ins);
 
 		if (itr != map_RC0.end())
@@ -439,15 +1024,15 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
-			std::vector<Instruction *> tmp_vec;
+			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(rc0);
-			map_RC0.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			map_RC0.insert(__pair_map_Ins__(ins, tmp_vec));
 		}
 	}
 
 	void insertDef(Instruction *ins, Instruction *def)
 	{
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+		__itr_mapIns_type__ itr = map_Def.begin();
 		itr = map_Def.find(ins);
 
 		if (itr != map_Def.end())
@@ -459,18 +1044,18 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
-			std::vector<Instruction *> tmp_vec;
+			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(def);
-			map_Def.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			map_Def.insert(__pair_map_Ins__(ins, tmp_vec));
 		}
 	}
 
-	std::vector<Instruction *> getDef(Instruction *i)
+	__vecIns_type__ getDef(Instruction *i)
 	{
-		std::vector<Instruction *> tmp_vec;
+		__vecIns_type__ tmp_vec;
 		tmp_vec.clear();
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+		__itr_mapIns_type__ itr = map_Def.begin();
 		itr = map_Def.find(i);
 
 		if (itr != map_Def.end())
@@ -480,12 +1065,12 @@ struct CFGPass : public FunctionPass
 
 		return tmp_vec;
 	}
-	std::vector<Instruction *> getRef(Instruction *i)
+	__vecIns_type__ getRef(Instruction *i)
 	{
-		std::vector<Instruction *> tmp_vec;
+		__vecIns_type__ tmp_vec;
 		tmp_vec.clear();
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.begin();
+		__itr_mapIns_type__ itr = map_Ref.begin();
 		itr = map_Ref.find(i);
 
 		if (itr != map_Ref.end())
@@ -495,12 +1080,28 @@ struct CFGPass : public FunctionPass
 
 		return tmp_vec;
 	}
-	std::vector<Instruction *> getRC0(Instruction *i)
+	__vecIns_type__ getRCb0(Instruction *i, __mapIns_type__ mapRC)
 	{
-		std::vector<Instruction *> tmp_vec;
+		__vecIns_type__ tmp_vec;
 		tmp_vec.clear();
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_RC0.begin();
+		__itr_mapIns_type__ itr = mapRC.begin();
+		itr = mapRC.find(i);
+
+		if (itr != mapRC.end())
+		{
+			tmp_vec = itr->second;
+		}
+
+		return tmp_vec;
+	}
+
+	__vecIns_type__ getRC0(Instruction *i)
+	{
+		__vecIns_type__ tmp_vec;
+		tmp_vec.clear();
+
+		__itr_mapIns_type__ itr = map_RC0.begin();
 		itr = map_RC0.find(i);
 
 		if (itr != map_RC0.end())
@@ -514,7 +1115,7 @@ struct CFGPass : public FunctionPass
 	void insertInfl(Instruction *ins, Instruction *Infl)
 	{
 		//std::cout << "Instruction insert took place " << std::endl;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Infl.find(ins);
+		__itr_mapIns_type__ itr = map_Infl.find(ins);
 
 		if (itr != map_Infl.end())
 		{
@@ -525,14 +1126,30 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
-			std::vector<Instruction *> tmp_vec;
+			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(Infl);
-			map_Infl.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+			map_Infl.insert(__pair_map_Ins__(ins, tmp_vec));
+		}
+	}
+	__vecIns_type__ getInfl(Instruction *ins)
+	{
+		//std::cout << "Instruction insert took place " << std::endl;
+		__itr_mapIns_type__ itr = map_Infl.find(ins);
+
+		if (itr != map_Infl.end())
+		{
+			return itr->second;
+		}
+		else
+		{
+			__vecIns_type__ tmp_vec;
+			tmp_vec.clear();
+			return tmp_vec;
 		}
 	}
 	bool findVariables(Function &F)
 	{
-
+		bool breakFlag = false;
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
@@ -553,13 +1170,20 @@ struct CFGPass : public FunctionPass
 					errs() << I.getName() << "\n"
 						   << I.getOpcodeName();
 				}
+				if (&I == C.p)
+				{
+					breakFlag = true;
+					break;
+				}
 			}
+			if (breakFlag)
+				break;
 		}
 	}
 
-	std::vector<Instruction *> getSuccessorList(Function &F, Instruction *I) // there might be multiple Succ
+	__vecIns_type__ getSuccessorList(Function &F, Instruction *I) // there might be multiple Succ
 	{
-		std::vector<Instruction *> SuccList;
+		__vecIns_type__ SuccList;
 
 		Instruction *NextIns = NULL;
 		Instruction *curIns = NULL;
@@ -576,7 +1200,7 @@ struct CFGPass : public FunctionPass
 
 				curIns = &*I_iter;
 
-				if (curIns == I && (I->getOpcode() == Instruction::Br))
+				if (curIns == I && (I->getOpcode() == Instruction::Br)) // Memory comp
 				{
 					for (BasicBlock *SuccBB : successors(curBB))
 					{
@@ -597,9 +1221,9 @@ struct CFGPass : public FunctionPass
 		return SuccList;
 	}
 
-	std::vector<Instruction *> getPredessorList(Function &F, Instruction *I) // there might be multiple pred
+	__vecIns_type__ getPredessorList(Function &F, Instruction *I) // there might be multiple pred
 	{
-		std::vector<Instruction *> PredList;
+		__vecIns_type__ PredList;
 
 		Instruction *prevIns = NULL;
 		Instruction *curIns = NULL;
@@ -624,7 +1248,7 @@ struct CFGPass : public FunctionPass
 			{
 				curIns = &*I_iter;
 
-				if (curIns == I && prevIns)
+				if (curIns == I && prevIns) // Memory comp
 				{
 					PredList.push_back(prevIns);
 				}
@@ -650,12 +1274,9 @@ struct CFGPass : public FunctionPass
 		return PredList;
 	}
 
-	void addEdge(Instruction *u, Instruction *v)
-	{
-	}
 	bool createCFG(Function &F)
 	{
-		std::map<Instruction *, std::vector<Instruction *>> InsGrph;
+		__mapIns_type__ InsGrph;
 
 		raw_string_ostream rso(str);
 		StringRef name(F.getName().str() + ".dot");
@@ -747,62 +1368,110 @@ struct CFGPass : public FunctionPass
 		}
 	}
 
-	void Influenced(Function &F)
+	void setInfluence(Function &F)
 	{
-		std::vector<Instruction *> vecCompleted;
+		std::vector<BasicBlock *> vecTmp;
+		Function::iterator B_iter = F.begin();
+		bool breakFlag = false;
+		while (B_iter != F.end())
+		{
+			BasicBlock *curBB = &*B_iter;
+			std::string name = curBB->getName().str();
 
-		int Ki = 0;
-		for (BasicBlock &BB : F)
-			for (Instruction &I : BB)
+			for (BasicBlock::iterator I_iter = curBB->begin(); I_iter != curBB->end(); ++I_iter)
 			{
-				Ki++;
-				bool flag = true;
-				if (std::find(vecCompleted.begin(), vecCompleted.end(), &I) == vecCompleted.end())
-					if (I.getOpcode() == Instruction::Br && I.getNumOperands() == 1)
+
+				if (I_iter->getOpcode() == Instruction::Br)
+				{
+					bool flag = false;
+					for (BasicBlock *SuccBB : successors(curBB))
 					{
-						for (unsigned i = 0, ei = I.getNumOperands(); i != ei; i++)
+						if (!flag)
 						{
-							Value *operand1 = I.getOperand(i);
-
-							int Kj = 0;
-							for (BasicBlock &BB1 : F)
-								for (Instruction &Ii : BB1)
+							if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
+							{
+								vecTmp.push_back(curBB);
+								flag = true;
+								for (Instruction &I : *SuccBB)
 								{
-									Kj++;
 
-									if (Kj > Ki && flag)
-									{
-										for (unsigned j = 0, ej = Ii.getNumOperands(); j != ej; j++)
-										{
-											Value *operand2 = Ii.getOperand(j);
-
-											if (operand1 == operand2)
-											{
-												insertInfl(&I, &Ii);
-												if (std::find(vecCompleted.begin(), vecCompleted.end(), &Ii) == vecCompleted.end())
-												{
-													vecCompleted.push_back(&Ii);
-												}
-												flag = false;
-											}
-											else
-											{
-												insertInfl(&I, &Ii);
-											}
-										}
-									}
+									insertInfl(&*I_iter, &I);
+									//	errs() << " \t\t\t ::" << *&I << "\n";
 								}
+							}
 						}
 					}
+				}
+				Instruction *Ins = dyn_cast<Instruction>(I_iter);
+				if (Ins == C.p)
+				{
+					breakFlag = true;
+					break;
+				}
 			}
+
+			if (breakFlag)
+				break;
+
+			++B_iter;
+		}
 	}
+	// void Influenced(Function &F)
+	// {
+	// 	__vecIns_type__ vecCompleted;
+
+	// 	int Ki = 0;
+	// 	for (BasicBlock &BB : F)
+	// 		for (Instruction &I : BB)
+	// 		{
+	// 			Ki++;
+	// 			bool flag = true;
+	// 			if (std::find(vecCompleted.begin(), vecCompleted.end(), &I) == vecCompleted.end())
+	// 				if (I.getOpcode() == Instruction::Br && I.getNumOperands() == 1)
+	// 				{
+	// 					for (unsigned i = 0, ei = I.getNumOperands(); i != ei; i++)
+	// 					{
+	// 						Value *operand1 = I.getOperand(i);
+
+	// 						int Kj = 0;
+	// 						for (BasicBlock &BB1 : F)
+	// 							for (Instruction &Ii : BB1)
+	// 							{
+	// 								Kj++;
+
+	// 								if (Kj > Ki && flag)
+	// 								{
+	// 									for (unsigned j = 0, ej = Ii.getNumOperands(); j != ej; j++)
+	// 									{
+	// 										Value *operand2 = Ii.getOperand(j);
+
+	// 										if (operand1 == operand2)
+	// 										{
+	// 											insertInfl(&I, &Ii);
+	// 											if (std::find(vecCompleted.begin(), vecCompleted.end(), &Ii) == vecCompleted.end())
+	// 											{
+	// 												vecCompleted.push_back(&Ii);
+	// 											}
+	// 											flag = false;
+	// 										}
+	// 										else
+	// 										{
+	// 											insertInfl(&I, &Ii);
+	// 										}
+	// 									}
+	// 								}
+	// 							}
+	// 					}
+	// 				}
+	// 		}
+	// }
 
 	void displayInfl()
 	{
 
 		std::cout << " Display Infl started---------------------------->\n\n"
 				  << std::endl;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Infl.begin();
+		__itr_mapIns_type__ itr = map_Infl.begin();
 
 		while (itr != map_Infl.end())
 		{
@@ -830,18 +1499,18 @@ struct CFGPass : public FunctionPass
 //<< *F;
 #endif
 
-		std::vector<Instruction *> Inslist;
+		__vecIns_type__ Inslist;
 		for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
 		{
 			Inslist.push_back(&*I);
 		}
-		std::vector<Instruction *>::iterator iter = Inslist.begin();
+		__vecIns_type__::iterator iter = Inslist.begin();
 
 		while (iter != Inslist.end())
 		{
 			Instruction *instr = *iter;
 			//	errs() << "\n\n\ndef: " << *instr << " its address is " << instr << "\n";
-			//std::vector<Instruction *> PredList = getPredessorList(F, instr);
+			//__vecIns_type__ PredList = getPredessorList(F, instr);
 
 			//	for (int i = 0; i < PredList.size(); i++)
 			//	{
@@ -888,7 +1557,7 @@ struct CFGPass : public FunctionPass
 
 		std::cout << " Display DEF started---------------------------->\n\n"
 				  << std::endl;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Def.begin();
+		__itr_mapIns_type__ itr = map_Def.begin();
 
 		while (itr != map_Def.end())
 		{
@@ -910,13 +1579,13 @@ struct CFGPass : public FunctionPass
 	void setRef(Function &F)
 	{
 
-		std::vector<Instruction *> Inslist;
+		__vecIns_type__ Inslist;
 		for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
 		{
 			Inslist.push_back(&*I);
 		}
 
-		for (std::vector<Instruction *>::iterator iter1 = Inslist.begin(); iter1 != Inslist.end(); ++iter1)
+		for (__vecIns_type__::iterator iter1 = Inslist.begin(); iter1 != Inslist.end(); ++iter1)
 		{
 			Instruction *instr = *iter1;
 			insertRef(instr, NULL);
@@ -937,7 +1606,7 @@ struct CFGPass : public FunctionPass
 	void insertRef(Instruction *ins, Instruction *ref)
 	{
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.find(ins);
+		__itr_mapIns_type__ itr = map_Ref.find(ins);
 
 		if (itr != map_Ref.end())
 		{
@@ -955,24 +1624,24 @@ struct CFGPass : public FunctionPass
 			if (ref)
 			{
 
-				std::vector<Instruction *> tmp_vec;
+				__vecIns_type__ tmp_vec;
 				tmp_vec.push_back(ref);
 
-				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+				map_Ref.insert(__pair_map_Ins__(ins, tmp_vec));
 			}
 			else
 			{
-				std::vector<Instruction *> tmp_vec;
+				__vecIns_type__ tmp_vec;
 				tmp_vec.clear();
 
-				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+				map_Ref.insert(__pair_map_Ins__(ins, tmp_vec));
 			}
 		}
 	}
 	/*	void insertRef(Instruction *ins, Instruction *ref)
 	{
 
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.find(ins);
+		__itr_mapIns_type__ itr = map_Ref.find(ins);
 
 		if (itr != map_Ref.end())
 		{
@@ -1006,7 +1675,7 @@ struct CFGPass : public FunctionPass
 			if (ref)
 			{
 
-				std::vector<Instruction *> tmp_vec;
+				__vecIns_type__ tmp_vec;
 
 				if (isPresentinVarList(ref))
 					tmp_vec.push_back(ref);
@@ -1030,7 +1699,7 @@ struct CFGPass : public FunctionPass
 							}
 					}
 				}
-				map_Ref.insert(std::pair<Instruction *, std::vector<Instruction *>>(ins, tmp_vec));
+				map_Ref.insert(__pair_map_Ins__(ins, tmp_vec));
 			}
 		}
 	}*/
@@ -1039,7 +1708,7 @@ struct CFGPass : public FunctionPass
 
 		std::cout << " Display REF started---------------------------->\n\n"
 				  << std::endl;
-		std::map<Instruction *, std::vector<Instruction *>>::iterator itr = map_Ref.begin();
+		__itr_mapIns_type__ itr = map_Ref.begin();
 
 		while (itr != map_Ref.end())
 		{
@@ -1058,7 +1727,7 @@ struct CFGPass : public FunctionPass
 		std::cout << " \n\nDisplay REF end---------------------------->\n\n"
 				  << std::endl;
 	}
-	
+
 	void recSlice(Instruction *I)
 	{
 		for (Use &U : I->operands())
@@ -1072,6 +1741,155 @@ struct CFGPass : public FunctionPass
 			}
 		}
 	}
+
+	// void basiCBlockInfo(Function &F)
+	// {
+	// 	std::cout << " NITSHHHHHHHHHHHHHHHH  -------------------->" << std::endl;
+
+	// 	std::vector<BasicBlock *> vecPerformed;
+	// 	Instruction *curIns = NULL;
+	// 	Function::iterator B_iter = F.begin();
+	// 	while (B_iter != F.end())
+	// 	{
+	// 		BasicBlock *curBB = &*B_iter;
+	// 		std::string name = curBB->getName().str();
+
+	// 		for (BasicBlock::iterator I_iter = curBB->begin(); I_iter != curBB->end(); ++I_iter)
+	// 		{
+
+	// 			curIns = &*I_iter;
+
+	// 			if (I_iter->getOpcode() == Instruction::Br)
+	// 			{
+
+	// 				if (std::find(vecPerformed.begin(), vecPerformed.end(), curBB) == vecPerformed.end())
+	// 				{
+	// 					errs() << "\t\t This is branch Instruction ::" << *I_iter << "\n";
+	// 					bool flag = false;
+	// 					for (BasicBlock *SuccBB : successors(curBB))
+	// 					{
+	// 						if (!flag)
+	// 						{
+	// 							flag = true;
+	// 							vecPerformed.push_back(SuccBB);
+	// 							for (Instruction &I : *SuccBB)
+	// 							{
+	// 								errs() << " \t\t\t ::" << *&I << "\n";
+	// 							}
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+
+	// 		++B_iter;
+	// 	}
+	// }
+
+	void computeRcScBcPlus1(Function &F, unsigned char noOfIteration)
+	{
+		for (unsigned char i = 0; i < noOfIteration; i++)
+		{
+			computeRCkPlus1(F);
+			computeSCkPlus1(F);
+			computeBCkPlus1(F);
+		}
+	}
+	void displayFinalInstruction(Function &F)
+	{
+		std::cout << " Program Slicing for Given Procedure are as follows :: " << std::endl;
+		bool breakFlag = false;
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+				if (getSCkPlus1(&I))
+					errs() << "\t\t " << *&I << "\n";
+
+				if (C.p == &I)
+				{
+					breakFlag = true;
+					break;
+				}
+			}
+			if (breakFlag)
+				break;
+		}
+	}
+
+	bool isMemorySame(Function &F, Instruction *I1, Instruction *I2)
+	{
+		__vecIns_type__ vecTmp;
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+				vecTmp.push_back(&I);
+			}
+		}
+
+		__itr_vecIns_type__ itr1 = std::find(vecTmp.begin(), vecTmp.end(), I1);
+		__itr_vecIns_type__ itr2 = std::find(vecTmp.begin(), vecTmp.end(), I2);
+
+		if (itr1 == itr2 && itr1 != vecTmp.end())
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	void CheckCriteriaBreak(Function &F, Criteria Cb)
+	{
+
+		std::cout << " Program Slicing for Given Procedure are as follows :: " << std::endl;
+
+		__vecIns_type__ vecTmp;
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+				vecTmp.push_back(&I);
+			}
+		}
+
+		__itr_vecIns_type__ itr = std::find(vecTmp.begin(), vecTmp.end(), Cb.p);
+
+		if (itr == vecTmp.end())
+		{
+			std::cout << " Given crieria point doesn't exist in Program " << std::endl;
+		}
+		else
+		{
+			__itr_vecIns_type__ itr1 = vecTmp.begin();
+			while (itr1 != itr)
+			{
+				errs() << " Checking through iterators ::  " << *itr1 << "\n";
+
+				itr1++;
+			}
+		}
+
+		bool flag = false;
+		for (BasicBlock &B : F)
+		{
+			for (Instruction &I : B)
+			{
+				errs() << "  NITISH Instruction :: " << &I << "\n";
+				errs() << " Crieria Instruction :: " << Cb.p << "\n";
+				if (Cb.p == &I)
+				{
+
+					std::cout << " Memeory same " << std::endl;
+					flag = true;
+					break;
+				}
+			}
+			if (flag)
+				break;
+		}
+	}
 	bool runOnFunction(Function &F) override
 	{
 
@@ -1083,7 +1901,7 @@ struct CFGPass : public FunctionPass
 		setListOfVariables();
 		setRef(F);
 		displayREF();
-		Influenced(F);
+		setInfluence(F);
 		displayInfl();
 
 		int count = 0;
@@ -1091,18 +1909,27 @@ struct CFGPass : public FunctionPass
 			for (Instruction &I : BB)
 			{
 				count++;
-				if (16	 == count)
+				if (31 == count)
 				{
 					errs() << " Criteria is set for program IR point = " << I << "\n";
-					setCriteria(&I);
+					C = setCriteria(&I);
 				}
 			}
 
 		computeRC0(F);
+		displayRC0();
 		displaySuccList(F);
-		ComputeSC0(F);
+		computeSC0(F);
+		displaySC0();
+		computeBC0(F);
+		displayBC0();
+
+		computeRcScBcPlus1(F, 1);
+		displayFinalInstruction(F);
 
 		//displayPredList(F);
+
+		std::cout << " CALLS OVER " << std::endl;
 		return false;
 	}
 };
@@ -1110,60 +1937,3 @@ struct CFGPass : public FunctionPass
 char CFGPass::ID = 0;
 static void registerlinkuse(const PassManagerBuilder &, legacy::PassManagerBase &PM) { PM.add(new CFGPass()); }
 static RegisterStandardPasses X(PassManagerBuilder::EP_EarlyAsPossible, registerlinkuse);
-
-/*#include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/ADT/ilist_node.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/IR/CFG.h"
-
- 
-using namespace llvm;
-
-namespace 
-{
- 	struct linkuse : public FunctionPass 
-	{
-	static char ID;
-	linkuse() : FunctionPass(ID) {}
-
-	bool runOnFunction(Function &F) override 	
-	{		
-	
-      for (auto &B : F) {
-        //errs()<<"BLOCK FOUND "<<B<<"\n";
-        for (auto &I : B) {
-         
-          //errs()<<&I<<"\n";
-          if(I.getPrevNode())
-          errs()<<"Parent of "<<I<<"    ::  "<<*(I.getPrevNode())<<"\n\n\n\n";
-          
-            
-          }
-      }
-      
-
-      return false;
-    }
-	
-  };
-}
-
- char linkuse::ID = 0;
- //static RegisterPass<linkuse> X("linkuse", "Display of code",false,true);
-
-// Automatically enable the pass.
-
- static void registerlinkuse(const PassManagerBuilder &
-                                 , legacy::PassManagerBase &PM) 
- 								{ PM.add(new linkuse());}
- static RegisterStandardPasses X(PassManagerBuilder::EP_EarlyAsPossible,
-                                              registerlinkuse);
-
-*/
