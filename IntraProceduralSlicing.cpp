@@ -70,7 +70,7 @@ struct CFGPass : public FunctionPass
 
 	void computeBCkPlus1(Function &F)
 	{
-		bool breakFlag = false;
+		//bool breakFlag = false;
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
@@ -95,11 +95,11 @@ struct CFGPass : public FunctionPass
 
 				if (&I == C.p)
 				{
-					breakFlag = true;
+			//		breakFlag = true;
 				}
 			}
-			if (breakFlag)
-				break;
+			//if (breakFlag)
+			//	break;
 		}
 
 		map_BCk = map_BCkPlus1;
@@ -116,7 +116,7 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
-			std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+			//std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
 			return false;
 		}
 	}
@@ -142,7 +142,7 @@ struct CFGPass : public FunctionPass
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
-			bool breakFlag = false;
+			//bool breakFlag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -163,12 +163,12 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-						breakFlag = true;
-						break;
+			//			breakFlag = true;
+			//			break;
 					}
 				}
-				if (breakFlag)
-					break;
+			//	if (breakFlag)
+			//		break;
 			}
 		}
 
@@ -210,7 +210,7 @@ struct CFGPass : public FunctionPass
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
-			bool breakFlag = false;
+			//bool breakFlag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -245,12 +245,12 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-						breakFlag = true;
-						break;
+			//			breakFlag = true;
+			//			break;
 					}
 				}
-				if (breakFlag)
-					break;
+			//	if (breakFlag)
+			//		break;
 			}
 		}
 
@@ -274,7 +274,7 @@ struct CFGPass : public FunctionPass
 		{
 			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(rck);
-			map_RCk.insert(__pair_map_Ins__(ins, tmp_vec));
+			map_RCkPlus1.insert(__pair_map_Ins__(ins, tmp_vec));
 		}
 	}
 	__vecIns_type__ getRCk(Instruction *I)
@@ -372,7 +372,7 @@ struct CFGPass : public FunctionPass
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
-			bool breakFlag = false;
+			//bool breakFlag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -387,7 +387,7 @@ struct CFGPass : public FunctionPass
 						{
 							if (isVarExistInCriteria(varList[i], Cb))
 							{
-								std::cout << "\n Condition 1) met ---------->\n";
+								//std::cout << "\n Condition 1) met ---------->\n";
 
 								flag1 = true;
 							}
@@ -439,13 +439,13 @@ struct CFGPass : public FunctionPass
 
 					if (&I == Cb.p)
 					{
-						breakFlag = true;
-						break;
+						//breakFlag = true;
+						//break;
 					}
 				}
 
-				if (breakFlag)
-					break;
+				//if (breakFlag)
+				//	break;
 			}
 		}
 
@@ -458,8 +458,8 @@ struct CFGPass : public FunctionPass
 		while (itr != map_Def.end())
 		{
 #ifdef __LLVM_DEBUG__
-			std::cout << " Instruction in Listing of variable :: " << std::endl;
-			errs() << *itr->first << "\n";
+			//std::cout << " Instruction in Listing of variable :: " << std::endl;
+			//errs() << *itr->first << "\n";
 #endif
 			__vecIns_type__::iterator itrVec = varList.begin();
 
@@ -687,7 +687,7 @@ struct CFGPass : public FunctionPass
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
-			bool breakFlag = false;
+			//bool breakFlag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -751,14 +751,14 @@ struct CFGPass : public FunctionPass
 
 						if (&I == C.p)
 						{
-							breakFlag = true;
-							break;
+							//breakFlag = true;
+						//	break;
 						}
 					}
 				}
 
-				if (breakFlag)
-					break;
+				//if (breakFlag)
+				//	break;
 			}
 		}
 
@@ -767,7 +767,7 @@ struct CFGPass : public FunctionPass
 
 	void computeBC0(Function &F)
 	{
-		bool breakFlag = false;
+	//	bool breakFlag = false;
 
 		for (BasicBlock &B : F)
 		{
@@ -792,12 +792,12 @@ struct CFGPass : public FunctionPass
 
 				if (&I == C.p)
 				{
-					breakFlag = true;
-					break;
+				//	breakFlag = true;
+				//	break;
 				}
 			}
-			if (breakFlag)
-				break;
+			//if (breakFlag)
+			//	break;
 		}
 
 		map_BCk = map_BC0;
@@ -827,10 +827,7 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_BC0.end())
 		{
-			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
-
-			errs() << "\t\t\t " << (itr->second) << "\n";
-
+			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
 			itr++;
 		}
 
@@ -846,9 +843,8 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_BCkPlus1.end())
 		{
-			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
-
-			errs() << "\t\t\t " << (itr->second) << "\n";
+			
+			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
@@ -862,7 +858,7 @@ struct CFGPass : public FunctionPass
 		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
-			bool breakFlag = false;
+			//bool breakFlag = false;
 
 			for (BasicBlock &B : F)
 			{
@@ -889,12 +885,12 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-						breakFlag = true;
-						break;
+					//	breakFlag = true;
+					//	break;
 					}
 				}
-				if (breakFlag)
-					break;
+				//if (breakFlag)
+				//	break;
 			}
 		}
 	}
@@ -918,34 +914,31 @@ struct CFGPass : public FunctionPass
 	void displaySC0()
 	{
 
-		std::cout << " Display SC0 started---------------------------->\n\n"
+		std::cout << " Display SC0 started----------------------------------------------------------->\n\n"
 				  << std::endl;
 		__mapIns_Inc_type__::iterator itr = map_SC0.begin();
 
 		while (itr != map_SC0.end())
 		{
-			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
-
-			errs() << "\t\t\t " << (itr->second) << "\n";
+			
+			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
 
-		std::cout << " \n\nDisplay SC0 end---------------------------->\n\n"
+		std::cout << " \n\nDisplay SC0 end------------------------------------------------------------->\n\n"
 				  << std::endl;
 	}
 	void displaySCkPlus1()
 	{
 
-		std::cout << " Display SC(k+1) started---------------------------->\n\n"
-				  << std::endl;
+		std::cout << "\n Display SC(k+1) started---------------------------->\n\n";
 		__mapIns_Inc_type__::iterator itr = map_SCkPlus1.begin();
 
 		while (itr != map_SCkPlus1.end())
 		{
-			errs() << "\n\n Instruction :: " << *(itr->first) << "\n ";
-
-			errs() << "\t\t\t " << (itr->second) << "\n";
+			
+			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
@@ -970,13 +963,13 @@ struct CFGPass : public FunctionPass
 	}
 	void displayRC0()
 	{
-		std::cout << " Display RC0 started---------------------------->\n\n"
+		std::cout << " Display RC0 started--------------------------------------------------------->\n\n"
 				  << std::endl;
 		__itr_mapIns_type__ itr = map_RC0.begin();
 
 		while (itr != map_RC0.end())
 		{
-			errs() << "\n\n Instruction :: " << *(itr->first) << "\n";
+			errs() << "Instruction :: " << *(itr->first) << "\n";
 
 			for (int i = 0; i < itr->second.size(); i++)
 			{
@@ -1149,7 +1142,7 @@ struct CFGPass : public FunctionPass
 	}
 	bool findVariables(Function &F)
 	{
-		bool breakFlag = false;
+		//bool breakFlag = false;
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
@@ -1172,12 +1165,12 @@ struct CFGPass : public FunctionPass
 				}
 				if (&I == C.p)
 				{
-					breakFlag = true;
-					break;
+				//	breakFlag = true;
+				//	break;
 				}
 			}
-			if (breakFlag)
-				break;
+			//if (breakFlag)
+			//	break;
 		}
 	}
 
@@ -1383,6 +1376,27 @@ struct CFGPass : public FunctionPass
 
 				if (I_iter->getOpcode() == Instruction::Br)
 				{
+					//bool flag = false;
+					for (BasicBlock *SuccBB : successors(curBB))
+					{
+						//if (!flag)
+						//{
+							if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
+							{
+								vecTmp.push_back(curBB);
+						//		flag = true;
+								for (Instruction &I : *SuccBB)
+								{
+
+									insertInfl(&*I_iter, &I);
+									//	errs() << " \t\t\t ::" << *&I << "\n";
+								}
+							}
+						//}
+					}
+				}
+			/*	else if (I_iter->getOpcode() == Instruction::Br)
+				{
 					bool flag = false;
 					for (BasicBlock *SuccBB : successors(curBB))
 					{
@@ -1401,7 +1415,7 @@ struct CFGPass : public FunctionPass
 							}
 						}
 					}
-				}
+				}*/
 				Instruction *Ins = dyn_cast<Instruction>(I_iter);
 				if (Ins == C.p)
 				{
@@ -1791,7 +1805,9 @@ struct CFGPass : public FunctionPass
 		for (unsigned char i = 0; i < noOfIteration; i++)
 		{
 			computeRCkPlus1(F);
+			displayRCkPlus1();
 			computeSCkPlus1(F);
+			displaySCkPlus1();
 			computeBCkPlus1(F);
 		}
 	}
@@ -1918,13 +1934,13 @@ struct CFGPass : public FunctionPass
 
 		computeRC0(F);
 		displayRC0();
-		displaySuccList(F);
+		//displaySuccList(F);
 		computeSC0(F);
 		displaySC0();
 		computeBC0(F);
 		displayBC0();
 
-		computeRcScBcPlus1(F, 1);
+		computeRcScBcPlus1(F, 5);
 		displayFinalInstruction(F);
 
 		//displayPredList(F);

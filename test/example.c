@@ -1,14 +1,8 @@
 #include <stdio.h>
 int main()
 {
-    /* 
-   int a = 1;
-   int b = 2;
-   int c = 3;
-   int d = b+1;
-   int e = c+d;
-   
-   */
+
+  // Test Case 1 
     int n = 1;
     int i = 1;
     int sum = 0;
@@ -23,5 +17,16 @@ int main()
     printf("%d",sum);
     printf("%d",product);
 
-    return 0;
+   
+   //Test Case 2
+        /* 
+   int a = 1;
+   int b = 2;
+   int c = 3;
+   int d = b+1;
+   int e = c+d;
+   */
+
+
+      return 0;
 }
