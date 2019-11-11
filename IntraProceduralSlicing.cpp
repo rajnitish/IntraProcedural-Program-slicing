@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <llvm/Analysis/LoopInfo.h>
+
 using namespace llvm;
 
 namespace
@@ -66,6 +68,7 @@ struct CFGPass : public FunctionPass
 	std::string str;
 	std::map<BasicBlock *, int> basicBlockMap;
 	int bbCount; //Block
+	int TC;
 	CFGPass() : FunctionPass(ID) { bbCount = 0; }
 
 	void computeBCkPlus1(Function &F)
@@ -95,7 +98,7 @@ struct CFGPass : public FunctionPass
 
 				if (&I == C.p)
 				{
-			//		breakFlag = true;
+					//		breakFlag = true;
 				}
 			}
 			//if (breakFlag)
@@ -139,7 +142,6 @@ struct CFGPass : public FunctionPass
 	void computeSCkPlus1(Function &F)
 	{
 
-		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
 			//bool breakFlag = false;
@@ -163,12 +165,12 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-			//			breakFlag = true;
-			//			break;
+						//			breakFlag = true;
+						//			break;
 					}
 				}
-			//	if (breakFlag)
-			//		break;
+				//	if (breakFlag)
+				//		break;
 			}
 		}
 
@@ -207,7 +209,6 @@ struct CFGPass : public FunctionPass
 
 		__itr_mapIns_type__ itr = UnionRBck0.begin();
 
-		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
 			//bool breakFlag = false;
@@ -245,12 +246,12 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-			//			breakFlag = true;
-			//			break;
+						//			breakFlag = true;
+						//			break;
 					}
 				}
-			//	if (breakFlag)
-			//		break;
+				//	if (breakFlag)
+				//		break;
 			}
 		}
 
@@ -369,7 +370,6 @@ struct CFGPass : public FunctionPass
 	{
 		__mapIns_type__ map_RCb0;
 
-		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
 			//bool breakFlag = false;
@@ -684,7 +684,6 @@ struct CFGPass : public FunctionPass
 	{
 		//std::cout << "computeRC0 started " << std::endl;
 
-		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
 			//bool breakFlag = false;
@@ -752,7 +751,7 @@ struct CFGPass : public FunctionPass
 						if (&I == C.p)
 						{
 							//breakFlag = true;
-						//	break;
+							//	break;
 						}
 					}
 				}
@@ -767,7 +766,7 @@ struct CFGPass : public FunctionPass
 
 	void computeBC0(Function &F)
 	{
-	//	bool breakFlag = false;
+		//	bool breakFlag = false;
 
 		for (BasicBlock &B : F)
 		{
@@ -792,8 +791,8 @@ struct CFGPass : public FunctionPass
 
 				if (&I == C.p)
 				{
-				//	breakFlag = true;
-				//	break;
+					//	breakFlag = true;
+					//	break;
 				}
 			}
 			//if (breakFlag)
@@ -827,7 +826,7 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_BC0.end())
 		{
-			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
+			errs() << "STATUS = " << (itr->second) << "  Instruction :: " << *(itr->first) << "\n";
 			itr++;
 		}
 
@@ -843,8 +842,8 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_BCkPlus1.end())
 		{
-			
-			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
+
+			errs() << "STATUS = " << (itr->second) << "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
@@ -855,7 +854,6 @@ struct CFGPass : public FunctionPass
 	void computeSC0(Function &F)
 	{
 
-		int TC = 20; //getCountTotalIns(F);
 		for (int k = 0; k < TC; k++)
 		{
 			//bool breakFlag = false;
@@ -885,8 +883,8 @@ struct CFGPass : public FunctionPass
 
 					if (&I == C.p)
 					{
-					//	breakFlag = true;
-					//	break;
+						//	breakFlag = true;
+						//	break;
 					}
 				}
 				//if (breakFlag)
@@ -920,8 +918,8 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_SC0.end())
 		{
-			
-			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
+
+			errs() << "STATUS = " << (itr->second) << "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
@@ -937,8 +935,8 @@ struct CFGPass : public FunctionPass
 
 		while (itr != map_SCkPlus1.end())
 		{
-			
-			errs() <<"STATUS = "<<(itr->second)<< "  Instruction :: " << *(itr->first) << "\n";
+
+			errs() << "STATUS = " << (itr->second) << "  Instruction :: " << *(itr->first) << "\n";
 
 			itr++;
 		}
@@ -1165,8 +1163,8 @@ struct CFGPass : public FunctionPass
 				}
 				if (&I == C.p)
 				{
-				//	breakFlag = true;
-				//	break;
+					//	breakFlag = true;
+					//	break;
 				}
 			}
 			//if (breakFlag)
@@ -1361,7 +1359,7 @@ struct CFGPass : public FunctionPass
 		}
 	}
 
-	void setInfluence(Function &F)
+	/*void setInfluence(Function &F)
 	{
 		std::vector<BasicBlock *> vecTmp;
 		Function::iterator B_iter = F.begin();
@@ -1381,41 +1379,41 @@ struct CFGPass : public FunctionPass
 					{
 						//if (!flag)
 						//{
-							if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
+						if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
+						{
+							vecTmp.push_back(curBB);
+							//		flag = true;
+							for (Instruction &I : *SuccBB)
 							{
-								vecTmp.push_back(curBB);
-						//		flag = true;
-								for (Instruction &I : *SuccBB)
-								{
 
-									insertInfl(&*I_iter, &I);
-									//	errs() << " \t\t\t ::" << *&I << "\n";
-								}
+								insertInfl(&*I_iter, &I);
+								//	errs() << " \t\t\t ::" << *&I << "\n";
 							}
+						}
 						//}
 					}
 				}
-			/*	else if (I_iter->getOpcode() == Instruction::Br)
-				{
-					bool flag = false;
-					for (BasicBlock *SuccBB : successors(curBB))
-					{
-						if (!flag)
-						{
-							if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
-							{
-								vecTmp.push_back(curBB);
-								flag = true;
-								for (Instruction &I : *SuccBB)
-								{
+				// 	else if (I_iter->getOpcode() == Instruction::Br)
+				// {
+				// 	bool flag = false;
+				// 	for (BasicBlock *SuccBB : successors(curBB))
+				// 	{
+				// 		if (!flag)
+				// 		{
+				// 			if (std::find(vecTmp.begin(), vecTmp.end(), SuccBB) == vecTmp.end())
+				// 			{
+				// 				vecTmp.push_back(curBB);
+				// 				flag = true;
+				// 				for (Instruction &I : *SuccBB)
+				// 				{
 
-									insertInfl(&*I_iter, &I);
-									//	errs() << " \t\t\t ::" << *&I << "\n";
-								}
-							}
-						}
-					}
-				}*/
+				// 					insertInfl(&*I_iter, &I);
+				// 					//	errs() << " \t\t\t ::" << *&I << "\n";
+				// 				}
+				// 			}
+				// 		}
+				// 	}
+				// }
 				Instruction *Ins = dyn_cast<Instruction>(I_iter);
 				if (Ins == C.p)
 				{
@@ -1429,7 +1427,7 @@ struct CFGPass : public FunctionPass
 
 			++B_iter;
 		}
-	}
+	} */
 	// void Influenced(Function &F)
 	// {
 	// 	__vecIns_type__ vecCompleted;
@@ -1805,9 +1803,9 @@ struct CFGPass : public FunctionPass
 		for (unsigned char i = 0; i < noOfIteration; i++)
 		{
 			computeRCkPlus1(F);
-			displayRCkPlus1();
+			//displayRCkPlus1();
 			computeSCkPlus1(F);
-			displaySCkPlus1();
+			//displaySCkPlus1();
 			computeBCkPlus1(F);
 		}
 	}
@@ -1906,9 +1904,101 @@ struct CFGPass : public FunctionPass
 				break;
 		}
 	}
+	void getAnalysisUsage(AnalysisUsage &AU) const override
+	{
+		AU.setPreservesCFG();
+		AU.addRequired<LoopInfoWrapperPass>();
+	}
+	void setInfluence(Function &F)
+	{
+		//F.viewCFG();
+
+		LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+		for (BasicBlock &BB1 : F)
+		{
+
+			bool isLoop = LI.getLoopFor(&BB1);
+			for (Instruction &I : BB1)
+			{
+
+				if (I.getOpcode() == Instruction::Br)
+				{
+
+					Loop *L = LI.getLoopFor(&BB1);
+					if (LI.isLoopHeader(&BB1))
+					{
+						//errs() << "\n\n New Loop Branching detected---> @ ";
+						//errs() << I << " \n";
+
+						for (auto *Block : L->getBlocks())
+						{
+							for (auto &I1 : *Block)
+							{
+								insertInfl(&I, &I1);
+								//errs() << *&I1 << "\n";
+							}
+						}
+					}
+					else
+					{
+
+						BranchInst *BI = dyn_cast<BranchInst>(BB1.getTerminator());
+						if (BI && BI->isConditional())
+						{
+							//errs() << "\n\n New Conditional Branching detected---> @ ";
+							//	errs() << I << " \n";
+							for (auto *Block : successors(&BB1))
+							{
+								for (auto &I1 : *Block)
+								{
+									insertInfl(&I, &I1);
+									//	errs() << *&I1 << "\n";
+								}
+							}
+						}
+					}
+
+					//}
+				}
+			}
+		}
+
+		// BasicBlock *BB;
+		// bool flag = false;
+		// for (Function::iterator b = F.begin(), be = F.end(); b != be; ++b)
+		// {
+		// 	if (flag == false)
+		// 	{
+		// 		bool isLoop = LI.getLoopFor(&*b);
+		// 		if (isLoop)
+		// 		{
+		// 			BB
+		// 				Loop *L = LI.getLoopFor(&*b);
+
+		// 			std::cout << "NEW LOOP DETECTEDDDDD------------------------------>" << std::endl;
+
+		// 			L->getHeader()->print(errs());
+		// 			//if ()// == L->getExitBlock())
+		// 			//{
+		// 			//	for (BasicBlock::iterator i = b->begin(), ie = b->end(); i != ie; ++i)
+		// 			//	{
+
+		// 			//		errs() << *i << "\n";
+		// 			//	}
+		// 			//}
+
+		// 			flag = true;
+		// 		}
+		// 	}
+		//}
+		errs() << '\n';
+	}
 	bool runOnFunction(Function &F) override
 	{
-
+		
+		TC = getCountTotalIns(F);
+		std::cout<<" TC = "<<TC<<std::endl;
 		//checkInstruct(F);
 		//findVariables(F);
 		//createCFG(F);
@@ -1925,7 +2015,7 @@ struct CFGPass : public FunctionPass
 			for (Instruction &I : BB)
 			{
 				count++;
-				if (31 == count)
+				if (34 == count)
 				{
 					errs() << " Criteria is set for program IR point = " << I << "\n";
 					C = setCriteria(&I);
@@ -1940,7 +2030,7 @@ struct CFGPass : public FunctionPass
 		computeBC0(F);
 		displayBC0();
 
-		computeRcScBcPlus1(F, 5);
+		computeRcScBcPlus1(F,5);
 		displayFinalInstruction(F);
 
 		//displayPredList(F);
@@ -1948,7 +2038,7 @@ struct CFGPass : public FunctionPass
 		std::cout << " CALLS OVER " << std::endl;
 		return false;
 	}
-};
+}; // namespace
 } // namespace
 char CFGPass::ID = 0;
 static void registerlinkuse(const PassManagerBuilder &, legacy::PassManagerBase &PM) { PM.add(new CFGPass()); }
