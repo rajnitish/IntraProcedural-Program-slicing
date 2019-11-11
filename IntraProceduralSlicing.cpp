@@ -20,24 +20,19 @@ using namespace llvm;
 
 namespace
 {
-struct CFGPass : public FunctionPass
+struct PSlicePass : public FunctionPass
 {
 
-#define __LLVM_DEBUG__
-
-	struct struct_Inst
-	{
-		Instruction *ins;
-		int ins_id;
-	};
+	//#define __LLVM_DEBUG__
 
 	typedef std::vector<Instruction *> __vecIns_type__;
 	typedef std::pair<Instruction *, __vecIns_type__> __pair_map_Ins__;
 	typedef std::map<Instruction *, __vecIns_type__> __mapIns_type__;
-	typedef __mapIns_type__::iterator __itr_mapIns_type__;
 	typedef std::map<Instruction *, bool> __mapIns_Inc_type__;
-	typedef std::map<Instruction *, bool>::iterator __itr_mapIns_Inc_type__;
-	typedef std::vector<Instruction *>::iterator __itr_vecIns_type__;
+
+	typedef __mapIns_type__::iterator __itr_mapIns_type__;
+	typedef __mapIns_Inc_type__::iterator __itr_mapIns_Inc_type__;
+	typedef __vecIns_type__::iterator __itr_vecIns_type__;
 
 	__vecIns_type__ varList;
 	__mapIns_type__ map_Def;
@@ -69,11 +64,78 @@ struct CFGPass : public FunctionPass
 	std::map<BasicBlock *, int> basicBlockMap;
 	int bbCount; //Block
 	int TC;
-	CFGPass() : FunctionPass(ID) { bbCount = 0; }
+	PSlicePass() : FunctionPass(ID)
+	{
+		bbCount = 0;
+	}
 
+	bool isFixedPointConverge(__mapIns_Inc_type__ OLD, __mapIns_Inc_type__ NEW) // Assuming NEW IS SUPERSET OF OLD
+	{
+		__itr_mapIns_Inc_type__ itr_new = NEW.begin();
+
+		while (itr_new != NEW.end())
+		{
+
+			__itr_mapIns_Inc_type__ itr_old = OLD.begin();
+
+			itr_old = std::find(OLD.begin(), OLD.end(), *itr_new);
+			if (itr_old == OLD.end())
+			{
+				return false;
+			}
+			else
+			{
+				if (itr_old->second != itr_new->second)
+				{
+
+					return false;
+				}
+			}
+
+			itr_new++;
+		}
+
+		return true;
+	}
+
+	bool isFixedPointConverge(__mapIns_type__ OLD, __mapIns_type__ NEW) // Assuming NEW IS SUPERSET OF OLD
+	{
+		__itr_mapIns_type__ itr_new = NEW.begin();
+
+		while (itr_new != NEW.end())
+		{
+
+			__itr_mapIns_type__ itr_old = OLD.begin();
+			itr_old = std::find(OLD.begin(), OLD.end(), *itr_new);
+
+			if (itr_old == OLD.end())
+			{
+				return false;
+			}
+			else
+			{
+
+				__itr_vecIns_type__ itrV_new = itr_new->second.begin();
+
+				while (itrV_new != itr_new->second.begin())
+				{
+
+					if (std::find(itr_old->second.begin(), itr_old->second.end(), *itrV_new) == itr_old->second.end())
+					{
+						return false;
+					}
+
+					itrV_new++;
+				}
+			}
+
+			itr_new++;
+		}
+
+		return true;
+	}
 	void computeBCkPlus1(Function &F)
 	{
-		//bool breakFlag = false;
 		for (BasicBlock &B : F)
 		{
 			for (Instruction &I : B)
@@ -95,14 +157,7 @@ struct CFGPass : public FunctionPass
 				{
 					insertBCkPlus1(&I, false);
 				}
-
-				if (&I == C.p)
-				{
-					//		breakFlag = true;
-				}
 			}
-			//if (breakFlag)
-			//	break;
 		}
 
 		map_BCk = map_BCkPlus1;
@@ -119,7 +174,9 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
-			//std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+#ifdef __LLVM_DEBUG__
+			std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+#endif
 			return false;
 		}
 	}
@@ -144,7 +201,7 @@ struct CFGPass : public FunctionPass
 
 		for (int k = 0; k < TC; k++)
 		{
-			//bool breakFlag = false;
+			bool success_flag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -160,17 +217,20 @@ struct CFGPass : public FunctionPass
 						__vecIns_type__ Def_I = getDef(&I);
 						__vecIns_type__ RCkPlus1_j = getRCkPlus1(vecSucc[j]);
 
-						insertSCkPlus1(&I, isCommonExist(Def_I, RCkPlus1_j));
-					}
-
-					if (&I == C.p)
-					{
-						//			breakFlag = true;
-						//			break;
+						if (insertSCkPlus1(&I, isCommonExist(Def_I, RCkPlus1_j)))
+							success_flag = true;
 					}
 				}
-				//	if (breakFlag)
-				//		break;
+			}
+
+			if (!success_flag)
+			{
+#ifdef __LLVM_DEBUG__
+
+				std::cout << "@computeSCkPlus1::Fixed point achieved at iteration no " << k << std::endl;
+
+#endif
+				break;
 			}
 		}
 
@@ -186,20 +246,22 @@ struct CFGPass : public FunctionPass
 		}
 	}
 
-	void insertSCkPlus1(Instruction *ins, bool flag)
+	bool insertSCkPlus1(Instruction *ins, bool flag)
 	{
-
+		bool success_flag = false;
 		__mapIns_Inc_type__::iterator itr = map_SCkPlus1.begin();
 		itr = map_SCkPlus1.find(ins);
 
 		if (itr != map_SCkPlus1.end())
 		{
 			itr->second = flag;
+			success_flag = true;
 		}
 		else
 		{
 
 			map_SCkPlus1.insert(std::pair<Instruction *, bool>(ins, flag));
+			success_flag = true;
 		}
 	}
 
@@ -211,7 +273,7 @@ struct CFGPass : public FunctionPass
 
 		for (int k = 0; k < TC; k++)
 		{
-			//bool breakFlag = false;
+			bool success_flag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -224,7 +286,8 @@ struct CFGPass : public FunctionPass
 
 						while (itrRck != rck.end())
 						{
-							insertRCkPlus1(&I, *itrRck);
+							if (insertRCkPlus1(&I, *itrRck))
+								success_flag = true;
 
 							itrRck++;
 						}
@@ -238,20 +301,23 @@ struct CFGPass : public FunctionPass
 
 						while (itrSec != itr->second.end())
 						{
-							insertRCkPlus1(&I, *itrSec);
+							if (insertRCkPlus1(&I, *itrSec))
+								success_flag = true;
 
 							itrSec++;
 						}
 					}
-
-					if (&I == C.p)
-					{
-						//			breakFlag = true;
-						//			break;
-					}
 				}
-				//	if (breakFlag)
-				//		break;
+			}
+
+			if (!success_flag)
+			{
+#ifdef __LLVM_DEBUG__
+
+				std::cout << "@computeRCkPlus1::Fixed point achieved at iteration no " << k << std::endl;
+
+#endif
+				break;
 			}
 		}
 
@@ -259,8 +325,9 @@ struct CFGPass : public FunctionPass
 		map_RCk = map_RCkPlus1;
 	}
 
-	void insertRCkPlus1(Instruction *ins, Instruction *rck)
+	bool insertRCkPlus1(Instruction *ins, Instruction *rck)
 	{
+		bool success_flag = false;
 		__itr_mapIns_type__ itr = map_RCkPlus1.begin();
 		itr = map_RCkPlus1.find(ins);
 
@@ -269,6 +336,7 @@ struct CFGPass : public FunctionPass
 			if (std::find(itr->second.begin(), itr->second.end(), rck) == itr->second.end())
 			{
 				itr->second.push_back(rck);
+				success_flag = true;
 			}
 		}
 		else
@@ -276,7 +344,10 @@ struct CFGPass : public FunctionPass
 			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(rck);
 			map_RCkPlus1.insert(__pair_map_Ins__(ins, tmp_vec));
+			success_flag = true;
 		}
+
+		return success_flag;
 	}
 	__vecIns_type__ getRCk(Instruction *I)
 	{
@@ -372,7 +443,7 @@ struct CFGPass : public FunctionPass
 
 		for (int k = 0; k < TC; k++)
 		{
-			//bool breakFlag = false;
+			bool success_flag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
@@ -380,14 +451,18 @@ struct CFGPass : public FunctionPass
 
 					for (int i = 0; i < varList.size(); i++)
 					{
-						//				errs() << " Variable picked is " << *varList[i] << "\n";
+#ifdef __LLVM_DEBUG__
+						errs() << " Variable picked is " << *varList[i] << "\n";
+#endif
 						bool flag1 = false, flag2 = false, flag3 = false;
 
 						if (&I == Cb.p)
 						{
 							if (isVarExistInCriteria(varList[i], Cb))
 							{
-								//std::cout << "\n Condition 1) met ---------->\n";
+#ifdef __LLVM_DEBUG__
+								std::cout << "\n Condition 1) met ---------->\n";
+#endif
 
 								flag1 = true;
 							}
@@ -403,13 +478,17 @@ struct CFGPass : public FunctionPass
 
 								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RCb0_j))
 								{
-									//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+#ifdef __LLVM_DEBUG__
+									std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+#endif
 									flag2 = true;
 								}
 
 								else if (!isVarExistInDef(varList[i], &I) && isVarExistInRCb0(varList[i], vecSucc[j], map_RCb0))
 								{
-									//							std::cout << "\n Condition 2.b) met ---------->\n";
+#ifdef __LLVM_DEBUG__
+									std::cout << "\n Condition 2.b) met ---------->\n";
+#endif
 									flag3 = true;
 								}
 							}
@@ -425,6 +504,7 @@ struct CFGPass : public FunctionPass
 								if (std::find(itr->second.begin(), itr->second.end(), varList[i]) == itr->second.end())
 								{
 									itr->second.push_back(varList[i]);
+									success_flag = true;
 								}
 							}
 							else
@@ -433,19 +513,21 @@ struct CFGPass : public FunctionPass
 								tmp_vec.push_back(varList[i]);
 
 								map_RCb0.insert(__pair_map_Ins__(&I, tmp_vec));
+								success_flag = true;
 							}
 						}
 					}
-
-					if (&I == Cb.p)
-					{
-						//breakFlag = true;
-						//break;
-					}
 				}
+			}
 
-				//if (breakFlag)
-				//	break;
+			if (!success_flag)
+			{
+#ifdef __LLVM_DEBUG__
+
+				std::cout << "@computeRCb0::Fixed point achieved at iteration no " << k << std::endl;
+
+#endif
+				break;
 			}
 		}
 
@@ -458,8 +540,8 @@ struct CFGPass : public FunctionPass
 		while (itr != map_Def.end())
 		{
 #ifdef __LLVM_DEBUG__
-			//std::cout << " Instruction in Listing of variable :: " << std::endl;
-			//errs() << *itr->first << "\n";
+			std::cout << " Instruction in Listing of variable :: " << std::endl;
+			errs() << *itr->first << "\n";
 #endif
 			__vecIns_type__::iterator itrVec = varList.begin();
 
@@ -468,7 +550,6 @@ struct CFGPass : public FunctionPass
 				if (itrVec == varList.end())
 				{
 					Instruction *I = *itr->second.begin();
-					//if (I->getOpcode() == Instruction::Alloca)
 					varList.push_back(I);
 				}
 				else
@@ -480,7 +561,6 @@ struct CFGPass : public FunctionPass
 						{
 
 							Instruction *I = *itrSec;
-							//	if (I->getOpcode() == Instruction::Alloca)
 							varList.push_back(*itrSec);
 						}
 
@@ -513,13 +593,17 @@ struct CFGPass : public FunctionPass
 
 		if (itr == map_Ref.end())
 		{
+#ifdef __LLVM_DEBUG__
 			std::cout << " Wrong Instruction pointer provided" << std::endl;
+#endif
 		}
 		else
 		{
+#ifdef __LLVM_DEBUG__
 			errs() << " Criteria Variable set are as follows \n\n";
 			for (int i = 0; i < itr->second.size(); i++)
 				errs() << " \t\t " << *itr->second[i] << "\n";
+#endif
 			Cb.V = itr->second;
 		}
 		return Cb;
@@ -603,33 +687,6 @@ struct CFGPass : public FunctionPass
 		return false;
 	}
 
-	/*__vecIns_type__ getSuccessorList(Instruction *ins, Function &F)
-	{
-		__vecIns_type__ SuccList;
-		SuccList.clear();
-
-		for (BasicBlock &B : F)
-		{
-			for (Instruction &I : B)
-			{
-				__vecIns_type__ predList = getPredessorList(F, &I);
-
-				for (int i = 0; i < predList.size(); i++)
-				{
-					if (predList[i] == ins)
-					{
-						if (std::find(SuccList.begin(), SuccList.end(), &I) == SuccList.end())
-						{
-							SuccList.push_back(&I);
-						}
-					}
-				}
-			}
-		}
-
-		return SuccList;
-	}*/
-
 	void displaySuccList(Function &F)
 	{
 
@@ -642,11 +699,13 @@ struct CFGPass : public FunctionPass
 			{
 				__vecIns_type__ SuccList = getSuccessorList(F, &I);
 
+#ifdef __LLVM_DEBUG__
 				errs() << "\n\n\n Successor of  :: " << *&I << " is as follows ::\n";
 				for (int i = 0; i < SuccList.size(); i++)
 				{
 					errs() << "\t\t\t" << *SuccList[i] << "\n";
 				}
+#endif
 			}
 		}
 	}
@@ -658,16 +717,17 @@ struct CFGPass : public FunctionPass
 			for (Instruction &I : B)
 			{
 				__vecIns_type__ PredList = getPredessorList(F, &I);
-
+#ifdef __LLVM_DEBUG__
 				errs() << "\n\n\n Predessor of  :: " << *&I << " is as follows ::\n";
 				for (int i = 0; i < PredList.size(); i++)
 				{
 					errs() << "\t\t\t" << *PredList[i] << "\n";
 				}
+#endif
 			}
 		}
 	}
-	int getCountTotalIns(Function &F)
+	void setCountTotalIns(Function &F)
 	{
 		int count = 0;
 		for (BasicBlock &B : F)
@@ -678,35 +738,43 @@ struct CFGPass : public FunctionPass
 			}
 		}
 
-		return count;
+		TC = count;
 	}
 	void computeRC0(Function &F)
 	{
-		//std::cout << "computeRC0 started " << std::endl;
+#ifdef __LLVM_DEBUG__
+		std::cout << "computeRC0 started " << std::endl;
+#endif
 
 		for (int k = 0; k < TC; k++)
 		{
-			//bool breakFlag = false;
+			bool success_flag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
 				{
-					//errs() << " Criteria Point = " << *C.p << " Instruction = " << I << "\n";
-					//errs()<<" INS---> "<<I<<" : ::  ";
+#ifdef __LLVM_DEBUG__
+					errs() << " Criteria Point = " << *C.p << " Instruction = " << I << "\n";
+					errs() << " INS---> " << I << " : ::  ";
 
-					//			errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
-					//			std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
+					errs() << " \n\n\n\n\n\nComputing RC0 for Instruction is :: " << I << "\n\n";
+					std::cout << "Total no of variable in Function is " << varList.size() << std::endl;
+#endif
 
 					for (int i = 0; i < varList.size(); i++)
 					{
-						//				errs() << " Variable picked is " << *varList[i] << "\n";
+#ifdef __LLVM_DEBUG__
+						errs() << " Variable picked is " << *varList[i] << "\n";
+#endif
 						bool flag1 = false, flag2 = false, flag3 = false;
 
 						if (&I == C.p)
 						{
 							if (isVarExistInCriteria(varList[i], C))
 							{
-								//						std::cout << "\n Condition 1) met ---------->\n";
+#ifdef __LLVM_DEBUG__
+								std::cout << "\n Condition 1) met ---------->\n";
+#endif
 
 								flag1 = true;
 							}
@@ -716,27 +784,41 @@ struct CFGPass : public FunctionPass
 							__vecIns_type__ vecSucc;
 							vecSucc = getSuccessorList(F, &I);
 
-							//					std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
+#ifdef __LLVM_DEBUG__
+							std::cout << "Size of SuccessorList of current Instruction " << vecSucc.size() << std::endl;
+#endif
 							for (int j = 0; j < vecSucc.size(); ++j)
 							{
-								//						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+
+#ifdef __LLVM_DEBUG__
+								errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+#endif
 
 								__vecIns_type__ Def_I = getDef(&I);
 								__vecIns_type__ RC0_j = getRC0(vecSucc[j]);
 
-								//						std::cout << " Def_I size " << Def_I.size() << std::endl;
-								//						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
-								//						errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
+#ifdef __LLVM_DEBUG__
+
+								std::cout << " Def_I size " << Def_I.size() << std::endl;
+								std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+								errs() << " REF checking " << isVarExistInRef(varList[i], &I) << "\n";
+#endif
 
 								if (isVarExistInRef(varList[i], &I) && isCommonExist(Def_I, RC0_j))
 								{
-									//							std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+#ifdef __LLVM_DEBUG__
+									std::cout << "\n Condition 2.a) met --------------------------------------------------------------------------------------------------------->\n";
+#endif
+
 									flag2 = true;
 								}
 
 								else if (!isVarExistInDef(varList[i], &I) && isVarExistInRC0(varList[i], vecSucc[j]))
 								{
-									//							std::cout << "\n Condition 2.b) met ---------->\n";
+#ifdef __LLVM_DEBUG__
+									std::cout << "\n Condition 2.b) met ---------->\n";
+#endif
+
 									flag3 = true;
 								}
 							}
@@ -744,20 +826,21 @@ struct CFGPass : public FunctionPass
 
 						if (flag1 || flag2 || flag3)
 						{
-							//	errs()<< " VAR--->"<<*varList[i]<<"\n\n";
-							insertRC0(&I, varList[i]);
-						}
-
-						if (&I == C.p)
-						{
-							//breakFlag = true;
-							//	break;
+							if (insertRC0(&I, varList[i]))
+								success_flag = true;
 						}
 					}
 				}
+			}
 
-				//if (breakFlag)
-				//	break;
+			if (!success_flag)
+			{
+#ifdef __LLVM_DEBUG__
+
+				std::cout << "@computeRC0::Fixed point achieved at iteration no " << k << std::endl;
+
+#endif
+				break;
 			}
 		}
 
@@ -766,7 +849,6 @@ struct CFGPass : public FunctionPass
 
 	void computeBC0(Function &F)
 	{
-		//	bool breakFlag = false;
 
 		for (BasicBlock &B : F)
 		{
@@ -788,15 +870,7 @@ struct CFGPass : public FunctionPass
 				{
 					insertBC0(&I, false);
 				}
-
-				if (&I == C.p)
-				{
-					//	breakFlag = true;
-					//	break;
-				}
 			}
-			//if (breakFlag)
-			//	break;
 		}
 
 		map_BCk = map_BC0;
@@ -856,45 +930,54 @@ struct CFGPass : public FunctionPass
 
 		for (int k = 0; k < TC; k++)
 		{
-			//bool breakFlag = false;
-
+			bool success_flag = false;
 			for (BasicBlock &B : F)
 			{
 				for (Instruction &I : B)
 				{
-					//				errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
-
+#ifdef __LLVM_DEBUG__
+					errs() << " \n\n\n\n\n\nComputing SC0 for Instruction is :: " << I << "\n\n";
+#endif
 					bool flag = false;
 					__vecIns_type__ vecSucc;
 					vecSucc = getSuccessorList(F, &I);
 
 					for (int j = 0; j < vecSucc.size(); ++j)
 					{
-						//					errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
 
+#ifdef __LLVM_DEBUG__
+						errs() << "Successor of current Instruction picked  " << *(vecSucc[j]) << "\n";
+#endif
 						__vecIns_type__ Def_I = getDef(&I);
 						__vecIns_type__ RC0_j = getRC0(vecSucc[j]);
 
-						//					std::cout << " Def_I size " << Def_I.size() << std::endl;
-						//					std::cout << " RC0_j size " << RC0_j.size() << std::endl;
+#ifdef __LLVM_DEBUG__
+						std::cout << " Def_I size " << Def_I.size() << std::endl;
+						std::cout << " RC0_j size " << RC0_j.size() << std::endl;
 
-						insertSC0(&I, isCommonExist(Def_I, RC0_j));
-					}
+#endif
 
-					if (&I == C.p)
-					{
-						//	breakFlag = true;
-						//	break;
+						if (insertSC0(&I, isCommonExist(Def_I, RC0_j)))
+							success_flag = true;
 					}
 				}
-				//if (breakFlag)
-				//	break;
+			}
+
+			if (!success_flag)
+			{
+#ifdef __LLVM_DEBUG__
+
+				std::cout << "@computeSC0::Fixed point achieved at iteration no " << k << std::endl;
+
+#endif
+				break;
 			}
 		}
 	}
 
-	void insertSC0(Instruction *ins, bool flag)
+	bool insertSC0(Instruction *ins, bool flag)
 	{
+		bool success_flag = false;
 
 		__mapIns_Inc_type__::iterator itr = map_SC0.begin();
 		itr = map_SC0.find(ins);
@@ -902,12 +985,16 @@ struct CFGPass : public FunctionPass
 		if (itr != map_SC0.end())
 		{
 			itr->second = flag;
+			success_flag = true;
 		}
 		else
 		{
 
 			map_SC0.insert(std::pair<Instruction *, bool>(ins, flag));
+			success_flag = true;
 		}
+
+		return success_flag;
 	}
 	void displaySC0()
 	{
@@ -955,7 +1042,10 @@ struct CFGPass : public FunctionPass
 		}
 		else
 		{
+
+#ifdef __LLVM_DEBUG__
 			std::cout << " This instruction is not present n program, How come getting its SCO" << std::endl;
+#endif
 			return false;
 		}
 	}
@@ -1001,8 +1091,9 @@ struct CFGPass : public FunctionPass
 		std::cout << " \n\nDisplay RC(k+1) end---------------------------->\n\n"
 				  << std::endl;
 	}
-	void insertRC0(Instruction *ins, Instruction *rc0)
+	bool insertRC0(Instruction *ins, Instruction *rc0)
 	{
+		bool success_flag = false;
 		__itr_mapIns_type__ itr = map_RC0.begin();
 		itr = map_RC0.find(ins);
 
@@ -1011,6 +1102,7 @@ struct CFGPass : public FunctionPass
 			if (std::find(itr->second.begin(), itr->second.end(), rc0) == itr->second.end())
 			{
 				itr->second.push_back(rc0);
+				success_flag = true;
 			}
 		}
 		else
@@ -1018,7 +1110,9 @@ struct CFGPass : public FunctionPass
 			__vecIns_type__ tmp_vec;
 			tmp_vec.push_back(rc0);
 			map_RC0.insert(__pair_map_Ins__(ins, tmp_vec));
+			success_flag = true;
 		}
+		return success_flag;
 	}
 
 	void insertDef(Instruction *ins, Instruction *def)
@@ -1105,7 +1199,6 @@ struct CFGPass : public FunctionPass
 
 	void insertInfl(Instruction *ins, Instruction *Infl)
 	{
-		//std::cout << "Instruction insert took place " << std::endl;
 		__itr_mapIns_type__ itr = map_Infl.find(ins);
 
 		if (itr != map_Infl.end())
@@ -1124,7 +1217,7 @@ struct CFGPass : public FunctionPass
 	}
 	__vecIns_type__ getInfl(Instruction *ins)
 	{
-		//std::cout << "Instruction insert took place " << std::endl;
+
 		__itr_mapIns_type__ itr = map_Infl.find(ins);
 
 		if (itr != map_Infl.end())
@@ -1136,39 +1229,6 @@ struct CFGPass : public FunctionPass
 			__vecIns_type__ tmp_vec;
 			tmp_vec.clear();
 			return tmp_vec;
-		}
-	}
-	bool findVariables(Function &F)
-	{
-		//bool breakFlag = false;
-		for (BasicBlock &B : F)
-		{
-			for (Instruction &I : B)
-			{
-				if (CallInst *call_inst = dyn_cast<CallInst>(&I))
-				{
-					Function *fn = call_inst->getCalledFunction();
-					StringRef fn_name = fn->getName();
-					errs() << fn_name << " : " << call_inst->getArgOperand(0) << "\n";
-					for (auto op = I.op_begin(); op != I.op_end(); op++)
-					{
-						Value *v = op->get();
-						StringRef name = v->getName();
-					}
-				}
-				else
-				{
-					errs() << I.getName() << "\n"
-						   << I.getOpcodeName();
-				}
-				if (&I == C.p)
-				{
-					//	breakFlag = true;
-					//	break;
-				}
-			}
-			//if (breakFlag)
-			//	break;
 		}
 	}
 
@@ -1263,100 +1323,6 @@ struct CFGPass : public FunctionPass
 		}
 
 		return PredList;
-	}
-
-	bool createCFG(Function &F)
-	{
-		__mapIns_type__ InsGrph;
-
-		raw_string_ostream rso(str);
-		StringRef name(F.getName().str() + ".dot");
-
-		enum sys::fs::OpenFlags F_None;
-		raw_fd_ostream file(name, error, F_None);
-
-		file << "digraph \"CFG for'" + F.getName() + "\' function\" {\n";
-
-		Function::iterator B_iter = F.begin();
-		while (B_iter != F.end())
-		{
-			BasicBlock *curBB = &*B_iter;
-			std::string name = curBB->getName().str();
-			int fromCountNum;
-			int toCountNum;
-			if (basicBlockMap.find(curBB) != basicBlockMap.end())
-			{
-				fromCountNum = basicBlockMap[curBB];
-			}
-			else
-			{
-				fromCountNum = bbCount;
-				basicBlockMap[curBB] = bbCount++;
-			}
-
-			file << "\tBB" << fromCountNum << " [shape=record, label=\"{";
-			file << "BB" << fromCountNum << ":\\l\\l";
-			for (BasicBlock::iterator I_iter = curBB->begin(); I_iter != curBB->end(); ++I_iter)
-			{
-				file << *I_iter << "\\l";
-			}
-			file << "}\"];\n";
-			for (BasicBlock *SuccBB : successors(curBB))
-			{
-				if (basicBlockMap.find(SuccBB) != basicBlockMap.end())
-				{
-					toCountNum = basicBlockMap[SuccBB];
-				}
-				else
-				{
-					toCountNum = bbCount;
-					basicBlockMap[SuccBB] = bbCount++;
-				}
-
-				file << "\tBB" << fromCountNum << "-> BB" << toCountNum << ";\n";
-			}
-
-			++B_iter;
-		}
-		file << "}\n";
-		file.close();
-	}
-
-	void checkInstruct(Function &F)
-	{
-		int K = 0;
-
-		for (BasicBlock &BB : F)
-		{
-			for (Instruction &I : BB)
-			{
-
-				if (K == 24)
-				{
-					errs() << " INSTRUCTion----------------------> " << K << "   -->" << I << "\n";
-					//	 Instruction Inst = dyn_cast<Instruction *>(I);
-					recSlice(&I);
-				}
-
-				for (unsigned i = 0, e = I.getNumOperands(); i != e; i++)
-				{
-					//I.getOperand(i)->print(errs());
-					//errs() << "\n";
-				}
-				K++;
-			}
-		}
-
-		int i = 0;
-		for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I, i++)
-		{
-			struct_Inst obj;
-			//obj.ins = &I;
-
-			std::vector<struct_Inst> InsList;
-
-			K++;
-		}
 	}
 
 	/*void setInfluence(Function &F)
@@ -1521,19 +1487,25 @@ struct CFGPass : public FunctionPass
 		while (iter != Inslist.end())
 		{
 			Instruction *instr = *iter;
-			//	errs() << "\n\n\ndef: " << *instr << " its address is " << instr << "\n";
-			//__vecIns_type__ PredList = getPredessorList(F, instr);
 
-			//	for (int i = 0; i < PredList.size(); i++)
-			//	{
-			//				errs() << "\t\t Predecessor Instruction :: " << *PredList[i] << "\n";
-			//	}
+#ifdef __LLVM_DEBUG__
+			errs() << "\n\n\ndef: " << *instr << " its address is " << instr << "\n";
+			__vecIns_type__ PredList = getPredessorList(F, instr);
+
+			for (int i = 0; i < PredList.size(); i++)
+			{
+				errs() << "\t\t Predecessor Instruction :: " << *PredList[i] << "\n";
+			}
+#endif
 
 			Instruction *vi = dyn_cast<Instruction>(instr);
 			if (vi->getOpcode() == Instruction::Store)
 			{
 
-				//	errs() << "Ref: " << *instr << "\n";
+#ifdef __LLVM_DEBUG__
+				errs() << "Ref: " << *instr << "\n";
+#endif
+
 				for (User::op_iterator i = vi->op_begin(), e = vi->op_end(); i != e; ++i)
 				{
 					Value *v = *i;
@@ -1556,13 +1528,15 @@ struct CFGPass : public FunctionPass
 					if (useIns)
 					{
 						insertDef(instr, useIns);
+#ifdef __LLVM_DEBUG__
 
-						//	errs() << "\t\t" << *vi << "\n";
+						errs() << "\t\t" << *vi << "\n";
+#endif
 					}
 				}
 			}
 			iter++;
-		} // use-def chain for Instruction
+		}
 	}
 	void displayDEF()
 	{
@@ -1608,8 +1582,9 @@ struct CFGPass : public FunctionPass
 				Instruction *vi = dyn_cast<Instruction>(*i);
 				if (vi)
 				{
-
-					//errs() << "iter num operands = " << instr->getNumOperands() << "\n";
+#ifdef __LLVM_DEBUG__
+					errs() << "iter num operands = " << instr->getNumOperands() << "\n";
+#endif
 					insertRef(instr, vi);
 				}
 			}
@@ -1740,20 +1715,6 @@ struct CFGPass : public FunctionPass
 				  << std::endl;
 	}
 
-	void recSlice(Instruction *I)
-	{
-		for (Use &U : I->operands())
-		{
-			if (Instruction *Inst = dyn_cast<Instruction>(U))
-			{
-				recSlice(Inst);
-
-				U->print(errs());
-				errs() << " NITISH  \n\n\n";
-			}
-		}
-	}
-
 	// void basiCBlockInfo(Function &F)
 	// {
 	// 	std::cout << " NITSHHHHHHHHHHHHHHHH  -------------------->" << std::endl;
@@ -1798,15 +1759,40 @@ struct CFGPass : public FunctionPass
 	// 	}
 	// }
 
-	void computeRcScBcPlus1(Function &F, unsigned char noOfIteration)
+	void computeRcScBcPlus1(Function &F)
 	{
-		for (unsigned char i = 0; i < noOfIteration; i++)
+		bool successflag = false;
+		for (unsigned char i = 0; i < TC; i++)
 		{
+			__mapIns_type__ map_RCk_old = map_RCk;
+
 			computeRCkPlus1(F);
-			//displayRCkPlus1();
+			//	displayRCkPlus1();
+
+			__mapIns_type__ map_RCk_new = map_RCk;
+
+			__mapIns_Inc_type__ map_SCk_old = map_SCkPlus1;
+
 			computeSCkPlus1(F);
 			//displaySCkPlus1();
+
+			__mapIns_Inc_type__ map_SCk_new = map_SCkPlus1;
+
+			__mapIns_Inc_type__ map_BCk_old = map_BCk;
+
 			computeBCkPlus1(F);
+
+			__mapIns_Inc_type__ map_BCk_new = map_BCk;
+
+			if (isFixedPointConverge(map_RCk_old, map_RCk_new) && isFixedPointConverge(map_SCk_old, map_SCk_new) && isFixedPointConverge(map_BCk_old, map_BCk_new))
+			{
+#ifdef __LLVM_DEBUG__
+
+				errs() << "@computeRcScBcPlus1::Fixed point achieved at iteration no " << (int)i << "\n";
+
+#endif
+				break;
+			}
 		}
 	}
 	void displayFinalInstruction(Function &F)
@@ -1928,15 +1914,20 @@ struct CFGPass : public FunctionPass
 					Loop *L = LI.getLoopFor(&BB1);
 					if (LI.isLoopHeader(&BB1))
 					{
-						//errs() << "\n\n New Loop Branching detected---> @ ";
-						//errs() << I << " \n";
+
+#ifdef __LLVM_DEBUG__
+						errs() << "\n\n New Loop Branching detected---> @ ";
+						errs() << I << " \n";
+#endif
 
 						for (auto *Block : L->getBlocks())
 						{
 							for (auto &I1 : *Block)
 							{
 								insertInfl(&I, &I1);
-								//errs() << *&I1 << "\n";
+#ifdef __LLVM_DEBUG__
+								errs() << *&I1 << "\n";
+#endif
 							}
 						}
 					}
@@ -1946,62 +1937,45 @@ struct CFGPass : public FunctionPass
 						BranchInst *BI = dyn_cast<BranchInst>(BB1.getTerminator());
 						if (BI && BI->isConditional())
 						{
-							//errs() << "\n\n New Conditional Branching detected---> @ ";
-							//	errs() << I << " \n";
+#ifdef __LLVM_DEBUG__
+							errs() << "\n\n New Conditional Branching detected---> @ ";
+							errs() << I << " \n";
+#endif
 							for (auto *Block : successors(&BB1))
 							{
 								for (auto &I1 : *Block)
 								{
 									insertInfl(&I, &I1);
-									//	errs() << *&I1 << "\n";
+#ifdef __LLVM_DEBUG__
+									errs() << *&I1 << "\n";
+#endif
 								}
 							}
 						}
 					}
-
-					//}
 				}
 			}
 		}
-
-		// BasicBlock *BB;
-		// bool flag = false;
-		// for (Function::iterator b = F.begin(), be = F.end(); b != be; ++b)
-		// {
-		// 	if (flag == false)
-		// 	{
-		// 		bool isLoop = LI.getLoopFor(&*b);
-		// 		if (isLoop)
-		// 		{
-		// 			BB
-		// 				Loop *L = LI.getLoopFor(&*b);
-
-		// 			std::cout << "NEW LOOP DETECTEDDDDD------------------------------>" << std::endl;
-
-		// 			L->getHeader()->print(errs());
-		// 			//if ()// == L->getExitBlock())
-		// 			//{
-		// 			//	for (BasicBlock::iterator i = b->begin(), ie = b->end(); i != ie; ++i)
-		// 			//	{
-
-		// 			//		errs() << *i << "\n";
-		// 			//	}
-		// 			//}
-
-		// 			flag = true;
-		// 		}
-		// 	}
-		//}
 		errs() << '\n';
+	}
+	void setProgramPointForCriteria(Function &F, int P)
+	{
+		int count = 0;
+		for (BasicBlock &BB : F)
+			for (Instruction &I : BB)
+			{
+				count++;
+				if (P == count)
+				{
+					errs() << " Criteria is set for program IR point = " << I << "\n";
+					C = setCriteria(&I);
+				}
+			}
 	}
 	bool runOnFunction(Function &F) override
 	{
-		
-		TC = getCountTotalIns(F);
-		std::cout<<" TC = "<<TC<<std::endl;
-		//checkInstruct(F);
-		//findVariables(F);
-		//createCFG(F);
+
+		setCountTotalIns(F);
 		setDef(F);
 		displayDEF();
 		setListOfVariables();
@@ -2009,19 +1983,7 @@ struct CFGPass : public FunctionPass
 		displayREF();
 		setInfluence(F);
 		displayInfl();
-
-		int count = 0;
-		for (BasicBlock &BB : F)
-			for (Instruction &I : BB)
-			{
-				count++;
-				if (34 == count)
-				{
-					errs() << " Criteria is set for program IR point = " << I << "\n";
-					C = setCriteria(&I);
-				}
-			}
-
+		setProgramPointForCriteria(F, 34);
 		computeRC0(F);
 		displayRC0();
 		//displaySuccList(F);
@@ -2029,8 +1991,7 @@ struct CFGPass : public FunctionPass
 		displaySC0();
 		computeBC0(F);
 		displayBC0();
-
-		computeRcScBcPlus1(F,5);
+		computeRcScBcPlus1(F);
 		displayFinalInstruction(F);
 
 		//displayPredList(F);
@@ -2040,6 +2001,6 @@ struct CFGPass : public FunctionPass
 	}
 }; // namespace
 } // namespace
-char CFGPass::ID = 0;
-static void registerlinkuse(const PassManagerBuilder &, legacy::PassManagerBase &PM) { PM.add(new CFGPass()); }
+char PSlicePass::ID = 0;
+static void registerlinkuse(const PassManagerBuilder &, legacy::PassManagerBase &PM) { PM.add(new PSlicePass()); }
 static RegisterStandardPasses X(PassManagerBuilder::EP_EarlyAsPossible, registerlinkuse);
